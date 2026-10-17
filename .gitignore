@@ -1,0 +1,5 @@
+node_modules/
+.next/
+target/
+hs_err_pid*.log
+.env.local
