@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Bang mau giao dien nguoi dung (cam pha vang nhe) */
+@theme {
+  --color-cam-vang: #F4A62A;
+  --color-cam-dam: #E8871E;
+  --color-vang-kem: #FFF4D9;
+  --color-trang-kem: #FFFCF6;
+  --color-nau-dam: #493522;
+}
+
+:root {
+  --background: #FFFCF6;
+  --foreground: #493522;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
