@@ -6,6 +6,7 @@ import com.example.demoChuong.exception.ResourceNotFoundException;
 import com.example.demoChuong.repository.DanhMucRepository;
 import com.example.demoChuong.service.DanhMucService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,6 +29,35 @@ public class DanhMucServiceImpl implements DanhMucService {
         DanhMuc e = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("danh mục", id));
         return toDTO(e);
+    }
+
+    @Override
+    @Transactional
+    public DanhMucDTO them(DanhMucDTO dto) {
+        DanhMuc e = new DanhMuc();
+        e.setTenDanhMuc(dto.tenDanhMuc());
+        e.setMoTa(dto.moTa());
+        e.setDanhMucChaId(dto.danhMucChaId());
+        return toDTO(repository.save(e));
+    }
+
+    @Override
+    @Transactional
+    public DanhMucDTO sua(Long id, DanhMucDTO dto) {
+        DanhMuc e = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("danh mục", id));
+        e.setTenDanhMuc(dto.tenDanhMuc());
+        e.setMoTa(dto.moTa());
+        e.setDanhMucChaId(dto.danhMucChaId());
+        return toDTO(repository.save(e));
+    }
+
+    @Override
+    @Transactional
+    public void xoa(Long id) {
+        DanhMuc e = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("danh mục", id));
+        repository.delete(e);
     }
 
     private DanhMucDTO toDTO(DanhMuc e) {

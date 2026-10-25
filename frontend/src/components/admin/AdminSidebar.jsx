@@ -4,29 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     FiHome,
-    FiBox,
+    FiBook,
     FiGrid,
-    FiTag,
-    FiClipboard,
-    FiShoppingCart,
+    FiUserCheck,
+    FiFileText,
     FiUsers,
-    FiList,
+    FiDollarSign,
     FiExternalLink,
 } from "react-icons/fi";
 
-// Menu chung, không chia nhóm
+// Menu Quản lý Thư viện
 const menu = [
     { name: "Tổng quan", link: "/admin", icon: FiHome },
-    { name: "Sản phẩm", link: "/admin/sanpham", icon: FiBox },
-    { name: "Danh mục", link: "/admin/danhmuc", icon: FiGrid },
-    { name: "Thương hiệu", link: "/admin/thuonghieu", icon: FiTag },
-    { name: "Đơn hàng", link: "/admin/donhang", icon: FiClipboard },
-    { name: "Bài viết", link: "/admin/baiviet", icon: FiShoppingCart },
-    { name: "Người dùng", link: "/admin/nguoidung", icon: FiUsers },
-    { name: "Menu website", link: "/admin/menu", icon: FiList },
+    { name: "Quản lý Sách", link: "/admin/sanpham", icon: FiBook },
+    { name: "Danh mục sách", link: "/admin/danhmuc", icon: FiGrid },
+    { name: "Tác giả", link: "/admin/tacgia", icon: FiUserCheck },
+    { name: "Phiếu mượn - Trả", link: "/admin/donhang", icon: FiFileText },
+    { name: "Độc giả", link: "/admin/nguoidung", icon: FiUsers },
+    { name: "Tiền phạt", link: "/admin/tienphat", icon: FiDollarSign },
 ];
 
-// /admin chỉ khớp chính xác, các mục khác khớp theo đoạn đường dẫn
 function dangMo(pathname, link) {
     if (link === "/admin") return pathname === "/admin";
     return pathname === link || pathname.startsWith(`${link}/`);
@@ -36,27 +33,23 @@ export default function AdminSidebar() {
     const pathname = usePathname();
 
     return (
-        // -mt-16: kéo sidebar lên phủ đầu header để logo nằm trên cùng cột menu.
-        // Cột kéo dài hết khu nội dung, dừng trước footer.
         <aside
-            className="relative z-40 -mt-16 w-16 shrink-0 bg-orange-900 text-white md:w-64"
+            className="relative z-40 -mt-16 w-16 shrink-0 bg-emerald-900 text-white md:w-64"
             aria-label="Menu quản trị"
         >
-            {/* Dính trên cùng khi cuộn, không cao hơn cột */}
             <div className="sticky top-0 flex h-screen max-h-full flex-col">
-                {/* Logo + tên (cao 4rem, thẳng hàng với header) */}
                 <Link
                     href="/admin"
-                    title="Mây Cake – Trang quản trị"
-                    className="flex h-16 shrink-0 items-center justify-center gap-3 border-b border-orange-800 px-3 focus-visible:outline-2 focus-visible:outline-orange-300 md:justify-start md:px-5"
+                    title="Thư Viện Số – Trang quản trị"
+                    className="flex h-16 shrink-0 items-center justify-center gap-3 border-b border-emerald-800 px-3 focus-visible:outline-2 focus-visible:outline-emerald-300 md:justify-start md:px-5"
                 >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-700 text-xl font-bold">
-                        M
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-xl font-bold">
+                        📚
                     </span>
 
                     <span className="hidden leading-tight md:block">
-                        <span className="block text-lg font-bold">Mây Cake</span>
-                        <span className="block text-xs text-orange-200">
+                        <span className="block text-lg font-bold">Thư Viện Số</span>
+                        <span className="block text-xs text-emerald-200">
                             Trang quản trị
                         </span>
                     </span>
@@ -74,10 +67,10 @@ export default function AdminSidebar() {
                                         href={item.link}
                                         title={item.name}
                                         aria-current={active ? "page" : undefined}
-                                        className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-orange-300 justify-center md:justify-start ${
+                                        className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-emerald-300 justify-center md:justify-start ${
                                             active
-                                                ? "bg-white font-semibold text-orange-900"
-                                                : "text-orange-100 hover:bg-orange-800"
+                                                ? "bg-white font-semibold text-emerald-900"
+                                                : "text-emerald-100 hover:bg-emerald-800"
                                         }`}
                                     >
                                         <Icon size={19} className="shrink-0" />
@@ -89,32 +82,28 @@ export default function AdminSidebar() {
                     </ul>
                 </nav>
 
-                {/* Thẻ ở cuối sidebar: dẫn sang cửa hàng (từ màn hình md) */}
                 <div className="shrink-0 p-3">
-                    <div
-                        className="hidden rounded-xl bg-orange-800 p-4 md:block"
-                    >
-                        <p className="font-semibold">Cửa hàng Mây Cake</p>
-                        <p className="mt-1 text-xs text-orange-200">
-                            Xem website như khách hàng đang thấy.
+                    <div className="hidden rounded-xl bg-emerald-800 p-4 md:block">
+                        <p className="font-semibold">Cổng Độc Giả</p>
+                        <p className="mt-1 text-xs text-emerald-200">
+                            Xem website như độc giả đang thấy.
                         </p>
 
                         <Link
                             href="/"
                             target="_blank"
-                            className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100 focus-visible:outline-2 focus-visible:outline-orange-300"
+                            className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-300"
                         >
                             <FiExternalLink size={16} />
-                            Xem cửa hàng
+                            Xem thư viện
                         </Link>
                     </div>
 
-                    {/* Dạng icon trên màn hình nhỏ */}
                     <Link
                         href="/"
                         target="_blank"
-                        title="Xem cửa hàng"
-                        className="flex items-center justify-center rounded-lg px-3 py-3 text-orange-100 hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-orange-300 md:hidden"
+                        title="Xem thư viện"
+                        className="flex items-center justify-center rounded-lg px-3 py-3 text-emerald-100 hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-emerald-300 md:hidden"
                     >
                         <FiExternalLink size={19} />
                     </Link>

@@ -1,153 +1,139 @@
-// File service dung de goi API thuong hieu tu Laravel
-
 import API_CONFIG from "@/config/api";
 
-const API_URL = `${API_CONFIG.BASE_URL}/sanpham`;
+const API_URL = `${API_CONFIG.BASE_URL}/sach`;
 
 const HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json",
 };
 
-// Doc loi tu API (Laravel tra ve message va errors)
-async function nemLoi(response, thongBaoMacDinh) {
+function chuanHoaDuLieu(item) {
+    if (!item) return item;
+    return {
+        ...item,
+        ten_san_pham: item.tenSach || item.ten_san_pham || "",
+        ma_san_pham: item.maSach || item.ma_san_pham || "",
+        gia: item.giaTien ?? item.gia ?? 0,
+        hinh_anh_dai_dien: item.anhBia || item.hinh_anh_dai_dien || "",
+        trang_thai: item.trangThai === "DANG_LUU_HANH" ? 1 : 0,
+        so_luong_ton: item.soTrang || 5,
+    };
+}
 
-    let data = {};
-
+// Lấy danh sách sách có phân trang
+export async function getSanPhams(page = 1, perPage = 10) {
     try {
-        data = await response.json();
-    } catch {
-        data = {};
+        const response = await fetch(API_URL, {
+            headers: { "Accept": "application/json" }
+        });
+
+        if (!response.ok) {
+            throw new Error("Không thể lấy danh sách sách");
+        }
+
+        const data = await response.json();
+        const rawList = Array.isArray(data) ? data : (data.data || []);
+        const formatted = rawList.map(chuanHoaDuLieu);
+
+        // Phân trang đơn giản ở frontend
+        const total = formatted.length;
+        const lastPage = Math.max(1, Math.ceil(total / perPage));
+        const startIndex = (page - 1) * perPage;
+        const pagedData = formatted.slice(startIndex, startIndex + perPage);
+
+        return {
+            data: pagedData,
+            total: total,
+            last_page: lastPage,
+            current_page: page,
+        };
+    } catch (err) {
+        console.error("Lỗi getSanPhams:", err);
+        return { data: [], total: 0, last_page: 1 };
     }
-
-    const error = new Error(data.message || thongBaoMacDinh);
-
-    // errors dang { ten_truong: ["thong bao"] } de hien duoi tung o nhap
-    error.errors = data.errors || null;
-
-    throw error;
 }
 
-
-// Lay danh sach san pham co phan trang
-export async function getSanPhams(page = 1, perPage = 5) {
-
-    const response = await fetch(
-        `${API_URL}?page=${page}&per_page=${perPage}`,
-        { headers: { "Accept": "application/json" } }
-    );
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể lấy danh sách sản phẩm");
-    }
-
-    return await response.json();
-}
-
-
-// Lay mot san pham theo ID
+// Lấy một sách theo ID
 export async function getSanPham(id) {
-
     const response = await fetch(`${API_URL}/${id}`, {
         headers: { "Accept": "application/json" },
     });
-
     if (!response.ok) {
-        await nemLoi(response, "Không tìm thấy sản phẩm");
+        throw new Error("Không tìm thấy sách");
     }
-
-    return await response.json();
+    const data = await response.json();
+    return chuanHoaDuLieu(data);
 }
 
-
+// Thêm sách mới
 export async function createSanPham(data) {
+    const payload = {
+        maSach: data.maSach || data.ma_san_pham || ("MS" + Date.now().toString().slice(-6)),
+        tenSach: data.tenSach || data.ten_san_pham,
+        danhMucId: data.danhMucId || data.danh_muc_id || 1,
+        nhaXuatBanId: data.nhaXuatBanId || data.nha_xuat_ban_id || 1,
+        isbn: data.isbn || null,
+        namXuatBan: data.namXuatBan || data.nam_xuat_ban || 2024,
+        lanTaiBan: 1,
+        ngonNgu: "Tiếng Việt",
+        moTa: data.moTa || data.mo_ta || "",
+        giaTien: data.giaTien || data.gia || 0,
+        soTrang: data.soTrang || 200,
+        anhBia: data.anhBia || data.hinh_anh_dai_dien || "",
+        trangThai: "DANG_LUU_HANH"
+    };
 
     const response = await fetch(API_URL, {
         method: "POST",
         headers: HEADERS,
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-        await nemLoi(response, "Không thể thêm sản phẩm");
+        throw new Error("Không thể thêm sách");
     }
-
     return await response.json();
 }
 
+// Sửa sách
 export async function updateSanPham(id, data) {
+    const payload = {
+        id: Number(id),
+        maSach: data.maSach || data.ma_san_pham,
+        tenSach: data.tenSach || data.ten_san_pham,
+        danhMucId: data.danhMucId || data.danh_muc_id || 1,
+        nhaXuatBanId: data.nhaXuatBanId || data.nha_xuat_ban_id || 1,
+        isbn: data.isbn,
+        namXuatBan: data.namXuatBan || data.nam_xuat_ban,
+        lanTaiBan: 1,
+        ngonNgu: "Tiếng Việt",
+        moTa: data.moTa || data.mo_ta,
+        giaTien: data.giaTien || data.gia,
+        soTrang: data.soTrang,
+        anhBia: data.anhBia || data.hinh_anh_dai_dien,
+        trangThai: data.trangThai || "DANG_LUU_HANH"
+    };
 
     const response = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
         headers: HEADERS,
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-        await nemLoi(response, "Không thể sửa sản phẩm");
+        throw new Error("Không thể sửa sách");
     }
-
     return await response.json();
 }
 
+// Xóa sách
 export async function deleteSanPham(id) {
-
     const response = await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
         headers: { "Accept": "application/json" },
     });
-
     if (!response.ok) {
-        await nemLoi(response, "Không thể xóa sản phẩm");
+        throw new Error("Không thể xóa sách (có thể đang có bản sao hoặc phiếu mượn tham chiếu)");
     }
-
-    return await response.json();
-}
-
-
-// Lay danh sach san pham trong thung rac (co phan trang)
-export async function getSanPhamThungRac(page = 1, perPage = 10) {
-
-    const response = await fetch(
-        `${API_URL}/thungrac?page=${page}&per_page=${perPage}`,
-        { headers: { "Accept": "application/json" } }
-    );
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể lấy danh sách thùng rác");
-    }
-
-    return await response.json();
-}
-
-
-// Khoi phuc san pham tu thung rac
-export async function khoiPhucSanPham(id) {
-
-    const response = await fetch(`${API_URL}/${id}/khoiphuc`, {
-        method: "POST",
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể khôi phục sản phẩm");
-    }
-
-    return await response.json();
-}
-
-
-// Xoa vinh vien san pham khoi database
-export async function xoaVinhVienSanPham(id) {
-
-    const response = await fetch(`${API_URL}/${id}/xoavinhvien`, {
-        method: "DELETE",
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể xóa vĩnh viễn sản phẩm");
-    }
-
     return await response.json();
 }

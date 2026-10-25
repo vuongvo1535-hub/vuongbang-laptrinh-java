@@ -11,7 +11,7 @@ import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/docGia")
+@RequestMapping({"/api/docGia", "/api/docgia", "/api/nguoidung"})
 public class DocGiaController {
 
     private final DocGiaService service;

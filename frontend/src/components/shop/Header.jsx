@@ -1,63 +1,57 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiSearch, FiBookOpen } from "react-icons/fi";
-import Menu from "@/components/shop/Menu";
 import { shopMenu } from "@/data/menu";
 
 export default function Header() {
-  const router = useRouter();
-  const [keyword, setKeyword] = useState("");
+    const router = useRouter();
+    const [q, setQ] = useState("");
+    const [moMenu, setMoMenu] = useState(false);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    const q = keyword.trim();
-    router.push(q ? `/products?search=${encodeURIComponent(q)}` : "/products");
-  };
+    const timKiem = (e) => {
+        e.preventDefault();
+        router.push(q.trim() ? `/sach?q=${encodeURIComponent(q.trim())}` : "/sach");
+    };
 
-  return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-vang-kem shadow-sm">
-      {/* Hàng 1: Logo + Tìm kiếm */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center gap-3 sm:gap-6 h-14">
-          <Link
-            href="/"
-            className="shrink-0 flex items-center gap-2 text-xl sm:text-2xl font-black text-nau-dam hover:text-cam-dam transition"
-          >
-            <FiBookOpen className="text-cam-dam" size={24} />
-            <span>Thư viện</span>
-          </Link>
+    return (
+        <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+                <Link href="/" className="text-2xl font-black text-emerald-700 tracking-wide whitespace-nowrap">
+                    📚 Thư Viện Sách
+                </Link>
 
-          <form
-            onSubmit={handleSearch}
-            className="flex flex-1 max-w-xl ml-auto items-center bg-trang-kem border border-cam-vang/50 rounded-lg p-1 focus-within:border-cam-dam transition"
-          >
-            <FiSearch className="mx-2 text-nau-dam/50 shrink-0" size={16} />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm sách theo tên..."
-              className="flex-1 min-w-0 bg-transparent outline-none text-sm text-nau-dam placeholder:text-nau-dam/40"
-            />
-            <button
-              type="submit"
-              className="shrink-0 bg-cam-vang hover:bg-cam-dam text-nau-dam text-sm font-semibold px-3 py-1 rounded-md transition"
-            >
-              Tìm
-            </button>
-          </form>
-        </div>
-      </div>
+                <nav className="hidden md:flex gap-6">
+                    {shopMenu.map((m) => (
+                        <Link key={m.link} href={m.link} className="font-semibold text-gray-700 hover:text-emerald-700 transition-colors">
+                            {m.name}
+                        </Link>
+                    ))}
+                </nav>
 
-      {/* Hàng 2: Menu điều hướng */}
-      <div className="border-t border-cam-vang/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-center text-sm font-medium">
-          <Menu items={shopMenu} />
-        </div>
-      </div>
-    </header>
-  );
+                <form onSubmit={timKiem} className="hidden md:flex flex-1 max-w-xs">
+                    <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="Tìm tên sách, tác giả..."
+                        className="w-full border border-gray-300 rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <button className="bg-emerald-600 text-white px-3 rounded-r-lg hover:bg-emerald-700">🔍</button>
+                </form>
+
+                <button onClick={() => setMoMenu(!moMenu)} className="md:hidden text-2xl" aria-label="Mở menu">☰</button>
+            </div>
+
+            {moMenu && (
+                <nav className="md:hidden border-t border-gray-200 px-4 py-3 flex flex-col gap-3 bg-white">
+                    {shopMenu.map((m) => (
+                        <Link key={m.link} href={m.link} onClick={() => setMoMenu(false)} className="font-semibold text-gray-700">
+                            {m.name}
+                        </Link>
+                    ))}
+                </nav>
+            )}
+        </header>
+    );
 }

@@ -1,134 +1,104 @@
-// =====================================================
-// FILE: donHangService.js
-// CHUC NANG: Goi API quan ly don hang tu Laravel
-// =====================================================
-
-// Import cau hinh API dung chung cua du an.
-// BASE_URL thuong co gia tri: http://127.0.0.1:8000/api
 import API_CONFIG from "@/config/api";
 
-// Duong dan API don hang.
-// Vi du: http://127.0.0.1:8000/api/donhang
-const API_URL = `${API_CONFIG.BASE_URL}/donhang`;
+const API_URL = `${API_CONFIG.BASE_URL}/phieuMuon`;
 
-// -----------------------------------------------------
-// HAM 1: LAY DANH SACH DON HANG
-// page: so trang can lay
-// search: tu khoa tim kiem
-// -----------------------------------------------------
+const HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+function chuanHoaPhieuMuon(item) {
+    if (!item) return item;
+    return {
+        ...item,
+        ma_don_hang: item.maPhieu || ("PM-" + item.id),
+        ten_nguoi_nhan: `Độc giả #${item.docGiaId}`,
+        so_dien_thoai: "-",
+        trang_thai: item.trangThai || "DANG_MUON",
+        ngay_tao: item.ngayMuon,
+        tong_tien: 0,
+    };
+}
+
+// Lấy danh sách phiếu mượn
 export async function getDonHangs(page = 1, search = "") {
-    // Tao tham so tren URL de Laravel nhan duoc.
-    // Laravel controller hien tai dung tham so "tu_khoa".
-    const params = new URLSearchParams({
-        page: String(page),
-        tu_khoa: search.trim(),
-    });
+    try {
+        const response = await fetch(API_URL, {
+            headers: { "Accept": "application/json" }
+        });
 
-    // Gui yeu cau GET den Laravel.
-    const response = await fetch(
-        `${API_URL}?${params.toString()}`,
-        {
-            headers: {
-                Accept: "application/json",
-            },
+        if (!response.ok) {
+            throw new Error("Không thể lấy danh sách phiếu mượn");
         }
-    );
 
-    // Neu HTTP status khong thanh cong thi bao loi.
-    if (!response.ok) {
-        throw new Error("Khong the lay danh sach don hang.");
+        const data = await response.json();
+        const rawList = Array.isArray(data) ? data : (data.data || []);
+        let formatted = rawList.map(chuanHoaPhieuMuon);
+
+        if (search.trim()) {
+            formatted = formatted.filter((x) =>
+                (x.ma_don_hang || "").toLowerCase().includes(search.toLowerCase()) ||
+                String(x.docGiaId).includes(search)
+            );
+        }
+
+        const perPage = 10;
+        const total = formatted.length;
+        const lastPage = Math.max(1, Math.ceil(total / perPage));
+        const startIndex = (page - 1) * perPage;
+        const pagedData = formatted.slice(startIndex, startIndex + perPage);
+
+        return {
+            data: pagedData,
+            total: total,
+            last_page: lastPage,
+            current_page: page,
+        };
+    } catch (err) {
+        console.error("Lỗi getDonHangs:", err);
+        return { data: [], total: 0, last_page: 1 };
     }
-
-    // Chuyen JSON Laravel tra ve thanh du lieu JavaScript.
-    return await response.json();
 }
 
-// -----------------------------------------------------
-// HAM 2: LAY CHI TIET DON HANG THEO ID
-// id: ID cua don hang can xem
-// -----------------------------------------------------
+// Lấy chi tiết phiếu mượn
 export async function getDonHang(id) {
+    const [resPhieu, resChiTiet] = await Promise.all([
+        fetch(`${API_URL}/${id}`, { headers: { "Accept": "application/json" } }),
+        fetch(`${API_URL}/${id}/chiTiet`, { headers: { "Accept": "application/json" } })
+    ]);
+
+    if (!resPhieu.ok) {
+        throw new Error("Không tìm thấy phiếu mượn");
+    }
+
+    const phieu = await resPhieu.json();
+    let chiTiet = [];
+    if (resChiTiet.ok) {
+        chiTiet = await resChiTiet.json();
+    }
+
+    return {
+        ...chuanHoaPhieuMuon(phieu),
+        chi_tiet_don_hang: Array.isArray(chiTiet) ? chiTiet : [],
+    };
+}
+
+// Cập nhật trạng thái phiếu mượn
+export async function capNhatTrangThaiDonHang(id, trangThaiMoi) {
+    const phieuHienTai = await (await fetch(`${API_URL}/${id}`)).json();
+    const payload = {
+        ...phieuHienTai,
+        trangThai: trangThaiMoi,
+    };
+
     const response = await fetch(`${API_URL}/${id}`, {
-        headers: {
-            Accept: "application/json",
-        },
+        method: "PUT",
+        headers: HEADERS,
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-        throw new Error("Khong the lay chi tiet don hang.");
+        throw new Error("Không thể cập nhật trạng thái phiếu mượn");
     }
-
     return await response.json();
-}
-// Lấy chi tiết một đơn hàng theo mã đơn hàng.
-export async function getDonHangById(id) {
-    return await getDonHang(id);
-}
-// -----------------------------------------------------
-// HAM 3: CAP NHAT TRANG THAI DON HANG
-// id: ID don hang
-// trangThai: trang thai moi
-// -----------------------------------------------------
-export async function updateDonHang(id, trangThai) {
-    const response = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-
-        // Bao cho Laravel biet du lieu gui len la JSON.
-        headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
-
-        // Chuyen trang thai thanh JSON de gui len API.
-        body: JSON.stringify({
-            trang_thai: trangThai,
-        }),
-    });
-
-    // Doc phan noi dung Laravel tra ve.
-    const ketQua = await response.json();
-
-    // Laravel co the tra loi loi validation hoac loi nghiep vu.
-    if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the cap nhat don hang."
-        );
-    }
-
-    return ketQua;
-}
-// =====================================================
-// HAM 4: CAP NHAT TRANG THAI DON HANG
-// id: Ma don hang can cap nhat
-// trangThai: Trang thai moi
-// =====================================================
-export async function capNhatTrangThaiDonHang(id, trangThai) {
-    // Gui yeu cau PUT den API Laravel.
-    const response = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-
-        // Khai bao du lieu gui len la JSON.
-        headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
-
-        // Gui trang thai moi len Laravel.
-        body: JSON.stringify({
-            trang_thai: trangThai,
-        }),
-    });
-
-    // Doc ket qua Laravel tra ve.
-    const ketQua = await response.json();
-
-    // Bao loi neu API khong cap nhat thanh cong.
-    if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the cap nhat trang thai don hang."
-        );
-    }
-
-    // Tra ket qua cho trang quan ly don hang.
-    return ketQua;
 }

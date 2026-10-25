@@ -1,139 +1,114 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FiArrowRight } from "react-icons/fi";
-import BookCard from "@/components/shop/book/BookCard";
-import { getSachs } from "@/services/shop/sachServices";
-import { getDanhMucSachs } from "@/services/shop/danhMucSachServices";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import SachService from "@/services/shop/sachServices";
+import SachCard from "@/components/shop/sach/SachCard";
 
-export default function Page() {
-  const [sachs, setSachs] = useState([]);
-  const [danhMucs, setDanhMucs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+const BUOC = [
+    ["1", "Tra cứu", "Tìm sách theo tên, tác giả hoặc thể loại."],
+    ["2", "Đặt trước", "Đặt trước khi sách đang được mượn hết."],
+    ["3", "Đến thư viện", "Mang thẻ đến quầy để mượn và trả sách."],
+];
 
-  useEffect(() => {
-    let ignore = false;
-    async function taiDuLieu() {
-      try {
-        const [dsSach, dsDanhMuc] = await Promise.all([
-          getSachs(),
-          getDanhMucSachs(),
-        ]);
-        if (!ignore) {
-          setSachs(dsSach || []);
-          setDanhMucs(dsDanhMuc || []);
-        }
-      } catch (err) {
-        console.error("Lỗi tải dữ liệu trang chủ:", err);
-        if (!ignore) setError("Không thể kết nối máy chủ. Vui lòng thử lại sau.");
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-    taiDuLieu();
-    return () => {
-      ignore = true;
+export default function TrangChu() {
+    const router = useRouter();
+    const [q, setQ] = useState("");
+    const [danhMuc, setDanhMuc] = useState([]);
+    const [sachMoi, setSachMoi] = useState([]);
+    const [tong, setTong] = useState(0);
+    const [loi, setLoi] = useState("");
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const [dm, ds] = await Promise.all([SachService.getDanhMuc(), SachService.getSach()]);
+                setDanhMuc(Array.isArray(dm) ? dm : (dm?.data || []));
+
+                const danhSachSach = Array.isArray(ds) ? ds : (ds?.data || []);
+                setSachMoi(danhSachSach.slice(0, 8));
+                setTong(danhSachSach.length);
+            } catch (err) {
+                console.error("Lỗi tải trang chủ:", err);
+                setLoi("Không tải được dữ liệu từ máy chủ. Vui lòng kiểm tra Backend.");
+            }
+        })();
+    }, []);
+
+    const timKiem = (e) => {
+        e.preventDefault();
+        router.push(q.trim() ? `/sach?q=${encodeURIComponent(q.trim())}` : "/sach");
     };
-  }, []);
 
-  // Sách mới: id lớn nhất (thêm gần đây nhất)
-  const sachMoi = useMemo(
-    () => [...sachs].sort((a, b) => b.id - a.id).slice(0, 4),
-    [sachs]
-  );
-
-  // Đếm số sách theo danh mục
-  const soSachTheoDanhMuc = useMemo(() => {
-    const dem = {};
-    sachs.forEach((s) => {
-      dem[s.danhMucId] = (dem[s.danhMucId] || 0) + 1;
-    });
-    return dem;
-  }, [sachs]);
-
-  return (
-    <div className="space-y-12">
-      {/* Hero */}
-      <section className="rounded-2xl bg-vang-kem border border-cam-vang/40 px-6 py-10 sm:px-10 sm:py-14">
-        <h1 className="text-3xl sm:text-4xl font-black text-nau-dam leading-tight">
-          Tra cứu sách <span className="text-cam-dam">dễ dàng</span>
-        </h1>
-        <p className="mt-3 max-w-xl text-nau-dam/75">
-          Tìm sách theo tên, xem thông tin chi tiết và tình trạng sách còn trên kệ.
-        </p>
-
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-2 bg-cam-vang hover:bg-cam-dam text-nau-dam font-semibold px-5 py-3 rounded-lg transition"
-          >
-            Xem tất cả sách <FiArrowRight />
-          </Link>
-          {!loading && !error && (
-            <span className="text-sm text-nau-dam/70">
-              {sachs.length} đầu sách · {danhMucs.length} danh mục
-            </span>
-          )}
-        </div>
-      </section>
-
-      {loading && <p className="text-center text-nau-dam/50">Đang tải...</p>}
-      {error && <p className="text-center text-red-600">{error}</p>}
-
-      {!loading && !error && (
+    return (
         <>
-          {/* Sách mới */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold text-nau-dam">Sách mới</h2>
-              <Link href="/products" className="text-sm font-semibold text-cam-dam hover:underline">
-                Xem tất cả →
-              </Link>
-            </div>
+            <section className="container mx-auto px-4 mt-6">
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-10 md:p-16 text-center shadow-lg">
+                    <h1 className="text-3xl md:text-5xl font-black">Khám phá kho sách của thư viện</h1>
+                    <p className="mt-3 text-emerald-50">Tra cứu nhanh, biết ngay sách còn hay đã được mượn.</p>
+                    <form onSubmit={timKiem} className="mt-6 max-w-xl mx-auto flex">
+                        <input
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            placeholder="Nhập tên sách, tác giả..."
+                            className="flex-1 rounded-l-lg px-4 py-3 text-gray-900 focus:outline-none"
+                        />
+                        <button className="bg-amber-400 text-gray-900 font-bold px-6 rounded-r-lg hover:bg-amber-300 transition">
+                            Tìm sách
+                        </button>
+                    </form>
+                    {tong > 0 && <p className="mt-4 text-sm text-emerald-100">Hiện có {tong} đầu sách đang lưu hành</p>}
+                </div>
+            </section>
 
-            {sachMoi.length === 0 ? (
-              <p className="text-sm text-nau-dam/50">Chưa có sách.</p>
-            ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {sachMoi.map((sach) => (
-                  <BookCard key={sach.id} sach={sach} />
-                ))}
-              </div>
-            )}
-          </section>
+            {loi && <p className="container mx-auto px-4 mt-6 text-red-600 font-medium">{loi}</p>}
 
-          {/* Danh mục */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold text-nau-dam">Danh mục sách</h2>
-              <Link href="/categories" className="text-sm font-semibold text-cam-dam hover:underline">
-                Xem tất cả →
-              </Link>
-            </div>
+            <section className="container mx-auto px-4 mt-10">
+                <h2 className="text-2xl font-bold mb-4">Thể loại sách</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {danhMuc.map((d) => (
+                        <Link
+                            key={d.id}
+                            href={`/sach?danh_muc=${d.id}`}
+                            className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md p-5 text-center transition hover:-translate-y-1"
+                        >
+                            <div className="text-3xl">📚</div>
+                            <div className="mt-2 font-bold text-gray-800">{d.tenDanhMuc || d.ten_danh_muc}</div>
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">{d.moTa || d.mo_ta || "Sách chọn lọc"}</p>
+                        </Link>
+                    ))}
+                </div>
+            </section>
 
-            {danhMucs.length === 0 ? (
-              <p className="text-sm text-nau-dam/50">Chưa có danh mục.</p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {danhMucs.map((dm) => (
-                  <Link
-                    key={dm.id}
-                    href={`/products?danhMuc=${dm.id}`}
-                    className="bg-white rounded-xl border border-cam-vang/30 hover:border-cam-vang hover:shadow-md transition p-4"
-                  >
-                    <p className="font-semibold text-nau-dam">{dm.tenDanhMuc}</p>
-                    <p className="mt-1 text-sm text-nau-dam/60">
-                      {soSachTheoDanhMuc[dm.id] || 0} sách
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
+            <section className="container mx-auto px-4 mt-10">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold">Sách mới nhập kho</h2>
+                    <Link href="/sach" className="text-emerald-700 font-semibold hover:underline">
+                        Xem tất cả →
+                    </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {sachMoi.map((x) => (
+                        <SachCard key={x.id} sach={x} />
+                    ))}
+                </div>
+            </section>
+
+            <section className="container mx-auto px-4 mt-12 mb-12">
+                <h2 className="text-2xl font-bold mb-4 text-center">Quy trình mượn sách</h2>
+                <div className="grid md:grid-cols-3 gap-5">
+                    {BUOC.map(([so, tieuDe, nd]) => (
+                        <div key={so} className="bg-white rounded-xl border border-gray-100 p-6 text-center shadow-sm">
+                            <div className="mx-auto w-10 h-10 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center">
+                                {so}
+                            </div>
+                            <h3 className="mt-3 font-bold text-gray-800">{tieuDe}</h3>
+                            <p className="text-sm text-gray-500 mt-1">{nd}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
         </>
-      )}
-    </div>
-  );
+    );
 }
