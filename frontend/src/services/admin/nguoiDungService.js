@@ -1,206 +1,131 @@
-
-// =====================================================
-// FILE: nguoiDungService.js
-// CHUC NANG: Goi API quan ly nguoi dung tu Laravel
-// =====================================================
-
-// Import cau hinh API dung chung cua du an.
 import API_CONFIG from "@/config/api";
 
-// Duong dan API nguoi dung.
-const API_URL = `${API_CONFIG.BASE_URL}/nguoidung`;
+const API_URL = `${API_CONFIG.BASE_URL}/docGia`;
 
-// -----------------------------------------------------
-// HAM 1: LAY DANH SACH NGUOI DUNG
-// page: so trang can lay
-// search: tu khoa tim kiem
-// -----------------------------------------------------
-export async function getNguoiDungs(page = 1, search = "") {
-    const params = new URLSearchParams({
-        page: String(page),
-        tu_khoa: search.trim(),
-    });
+const HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
 
-    const response = await fetch(
-        `${API_URL}?${params.toString()}`,
-        {
-            headers: {
-                Accept: "application/json",
-            },
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error("Khong the lay danh sach nguoi dung.");
-    }
-
-    return await response.json();
+function chuanHoaDocGia(item) {
+    if (!item) return item;
+    return {
+        ...item,
+        name: item.hoTen || item.name || "",
+        ho_ten: item.hoTen || item.name || "",
+        email: item.email || "",
+        phone: item.soDienThoai || item.phone || "-",
+        dia_chi: item.diaChi || item.dia_chi || "",
+        role: "DOC_GIA",
+        status: item.trangThai === "HOAT_DONG" ? "active" : "blocked",
+        created_at: item.ngayDangKy,
+    };
 }
 
-// -----------------------------------------------------
-// HAM 2: LAY CHI TIET NGUOI DUNG THEO ID
-// id: ID nguoi dung can xem
-// -----------------------------------------------------
+// Lấy danh sách độc giả
+export async function getNguoiDungs(page = 1, search = "") {
+    try {
+        const url = search ? `${API_URL}?tuKhoa=${encodeURIComponent(search)}` : API_URL;
+        const response = await fetch(url, {
+            headers: { "Accept": "application/json" }
+        });
+
+        if (!response.ok) {
+            throw new Error("Không thể lấy danh sách độc giả");
+        }
+
+        const data = await response.json();
+        const rawList = Array.isArray(data) ? data : (data.data || []);
+        const formatted = rawList.map(chuanHoaDocGia);
+
+        const perPage = 10;
+        const total = formatted.length;
+        const lastPage = Math.max(1, Math.ceil(total / perPage));
+        const startIndex = (page - 1) * perPage;
+        const pagedData = formatted.slice(startIndex, startIndex + perPage);
+
+        return {
+            data: pagedData,
+            total: total,
+            last_page: lastPage,
+            meta: { last_page: lastPage },
+            current_page: page,
+        };
+    } catch (err) {
+        console.error("Lỗi getNguoiDungs:", err);
+        return { data: [], total: 0, last_page: 1, meta: { last_page: 1 } };
+    }
+}
+
+// Lấy một độc giả theo ID
 export async function getNguoiDung(id) {
     const response = await fetch(`${API_URL}/${id}`, {
-        headers: {
-            Accept: "application/json",
-        },
+        headers: { "Accept": "application/json" },
+    });
+    if (!response.ok) {
+        throw new Error("Không tìm thấy độc giả");
+    }
+    const data = await response.json();
+    return chuanHoaDocGia(data);
+}
+
+// Thêm độc giả
+export async function createNguoiDung(data) {
+    const payload = {
+        maDocGia: data.maDocGia || ("DG" + Date.now().toString().slice(-6)),
+        hoTen: data.hoTen || data.name,
+        email: data.email,
+        soDienThoai: data.soDienThoai || data.phone,
+        diaChi: data.diaChi,
+        ngayDangKy: new Date().toISOString().split("T")[0],
+        trangThai: "HOAT_DONG",
+    };
+
+    const response = await fetch(API_URL, {
+        method: "POST",
+        headers: HEADERS,
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-        throw new Error("Khong the lay chi tiet nguoi dung.");
+        throw new Error("Không thể thêm độc giả");
     }
-
     return await response.json();
 }
 
-// -----------------------------------------------------
-// HAM 3: THEM NGUOI DUNG
-// data: thong tin nguoi dung
-// -----------------------------------------------------
-export async function createNguoiDung(data) {
-    const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
-        body: JSON.stringify(data),
-    });
-
-    const ketQua = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the them nguoi dung."
-        );
-    }
-
-    return ketQua;
-}
-
-// -----------------------------------------------------
-// HAM 4: CAP NHAT NGUOI DUNG
-// id: ID nguoi dung
-// data: thong tin can cap nhat
-// -----------------------------------------------------
+// Sửa độc giả
 export async function updateNguoiDung(id, data) {
+    const payload = {
+        id: Number(id),
+        maDocGia: data.maDocGia,
+        hoTen: data.hoTen || data.name,
+        email: data.email,
+        soDienThoai: data.soDienThoai || data.phone,
+        diaChi: data.diaChi,
+        ngayDangKy: data.ngayDangKy,
+        trangThai: data.trangThai || "HOAT_DONG",
+    };
+
     const response = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
-        body: JSON.stringify(data),
+        headers: HEADERS,
+        body: JSON.stringify(payload),
     });
 
-    const ketQua = await response.json();
-
     if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the cap nhat nguoi dung."
-        );
+        throw new Error("Không thể sửa thông tin độc giả");
     }
-
-    return ketQua;
+    return await response.json();
 }
 
-// -----------------------------------------------------
-// HAM 5: CHUYEN NGUOI DUNG VAO THUNG RAC
-// id: ID nguoi dung
-// -----------------------------------------------------
+// Xóa độc giả
 export async function deleteNguoiDung(id) {
     const response = await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
-        headers: {
-            Accept: "application/json",
-        },
+        headers: { "Accept": "application/json" },
     });
-
-    const ketQua = await response.json();
-
     if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the xoa nguoi dung."
-        );
+        throw new Error("Không thể xóa độc giả (có thể đang có phiếu mượn)");
     }
-
-    return ketQua;
-}
-
-// -----------------------------------------------------
-// HAM 6: LAY DANH SACH NGUOI DUNG TRONG THUNG RAC
-// page: so trang can lay
-// search: tu khoa tim kiem
-// -----------------------------------------------------
-export async function getNguoiDungThungRac(page = 1, search = "") {
-    const params = new URLSearchParams({
-        page: String(page),
-        tu_khoa: search.trim(),
-    });
-
-    const response = await fetch(
-        `${API_URL}/thungrac?${params.toString()}`,
-        {
-            headers: {
-                Accept: "application/json",
-            },
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error("Khong the lay danh sach thung rac.");
-    }
-
     return await response.json();
-}
-
-// -----------------------------------------------------
-// HAM 7: KHOI PHUC NGUOI DUNG
-// id: ID nguoi dung can khoi phuc
-// -----------------------------------------------------
-export async function restoreNguoiDung(id) {
-    const response = await fetch(`${API_URL}/${id}/khoiphuc`, {
-        method: "POST",
-        headers: {
-            Accept: "application/json",
-        },
-    });
-
-    const ketQua = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the khoi phuc nguoi dung."
-        );
-    }
-
-    return ketQua;
-}
-
-// -----------------------------------------------------
-// HAM 8: XOA VINH VIEN NGUOI DUNG
-// id: ID nguoi dung can xoa vinh vien
-// -----------------------------------------------------
-export async function forceDeleteNguoiDung(id) {
-    const response = await fetch(
-        `${API_URL}/${id}/xoavinhvien`,
-        {
-            method: "DELETE",
-            headers: {
-                Accept: "application/json",
-            },
-        }
-    );
-
-    const ketQua = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            ketQua.message || "Khong the xoa vinh vien nguoi dung."
-        );
-    }
-
-    return ketQua;
 }

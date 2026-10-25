@@ -13,7 +13,7 @@ import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/sach")
+@RequestMapping({"/api/sach", "/api/sanpham"})
 public class SachController {
 
     private final SachService service;

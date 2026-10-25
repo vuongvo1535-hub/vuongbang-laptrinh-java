@@ -10,4 +10,6 @@ import java.util.List;
 public interface PhieuMuonRepository extends JpaRepository<PhieuMuon, Long> {
 
     List<PhieuMuon> findByDocGiaId(Long docGiaId);
+
+    long countByTrangThai(String trangThai);
 }
