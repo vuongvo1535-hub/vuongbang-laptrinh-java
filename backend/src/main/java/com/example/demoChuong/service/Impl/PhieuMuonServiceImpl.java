@@ -95,32 +95,61 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
             throw new ResourceNotFoundException("độc giả", req.docGiaId());
         }
 
-        // Kiem tra the thu vien cua doc gia
+        // Kiem tra the thu vien cua doc gia (neu chua co thi tu dong cap the 12 thang)
         TheThuVien the = theThuVienRepository.findByDocGiaId(req.docGiaId()).orElse(null);
         if (the == null) {
-            throw new RuntimeException("Độc giả chưa được cấp thẻ thư viện, không thể mượn sách");
-        }
-        if (!"CON_HAN".equals(the.getTrangThai()) || the.getNgayHetHan().isBefore(LocalDate.now())) {
-            throw new RuntimeException("Thẻ thư viện của độc giả đã hết hạn hoặc bị khóa");
+            the = new TheThuVien();
+            the.setDocGiaId(req.docGiaId());
+            the.setSoThe("THE-" + req.docGiaId());
+            the.setNgayCap(LocalDate.now());
+            the.setNgayHetHan(LocalDate.now().plusMonths(12));
+            the.setTrangThai("CON_HAN");
+            the = theThuVienRepository.save(the);
+        } else if (!"CON_HAN".equals(the.getTrangThai()) || the.getNgayHetHan().isBefore(LocalDate.now())) {
+            // Gia han the de ho tro muon
+            the.setNgayHetHan(LocalDate.now().plusMonths(12));
+            the.setTrangThai("CON_HAN");
+            theThuVienRepository.save(the);
         }
 
-        // Kiem tra so luong sach muon (toi da 5 cuon)
-        if (req.banSaoSachIds() == null || req.banSaoSachIds().isEmpty()) {
-            throw new RuntimeException("Vui lòng chọn ít nhất 1 cuốn sách để mượn");
-        }
-        if (req.banSaoSachIds().size() > 5) {
-            throw new RuntimeException("Mỗi lần mượn tối đa 5 cuốn sách theo quy định");
-        }
-
-        // Kiem tra cac ban sao sach phai dang SAN_SANG
+        // Kiem tra danh sach ban sao sach hoac sachIds
         List<BanSaoSach> danhSachBanSao = new ArrayList<>();
-        for (Long bssId : req.banSaoSachIds()) {
-            BanSaoSach bss = banSaoSachRepository.findById(bssId)
-                    .orElseThrow(() -> new ResourceNotFoundException("bản sao sách", bssId));
-            if (!"SAN_SANG".equals(bss.getTrangThai())) {
-                throw new RuntimeException("Cuốn sách có mã vạch [" + bss.getMaVach() + "] hiện không sẵn sàng để mượn");
+        if (req.banSaoSachIds() != null && !req.banSaoSachIds().isEmpty()) {
+            if (req.banSaoSachIds().size() > 5) {
+                throw new RuntimeException("Mỗi lần mượn tối đa 5 cuốn sách theo quy định");
             }
-            danhSachBanSao.add(bss);
+            for (Long bssId : req.banSaoSachIds()) {
+                BanSaoSach bss = banSaoSachRepository.findById(bssId)
+                        .orElseThrow(() -> new ResourceNotFoundException("bản sao sách", bssId));
+                if (!"SAN_SANG".equals(bss.getTrangThai())) {
+                    throw new RuntimeException("Cuốn sách có mã vạch [" + bss.getMaVach() + "] hiện không sẵn sàng để mượn");
+                }
+                danhSachBanSao.add(bss);
+            }
+        } else if (req.sachIds() != null && !req.sachIds().isEmpty()) {
+            if (req.sachIds().size() > 5) {
+                throw new RuntimeException("Mỗi lần mượn tối đa 5 cuốn sách theo quy định");
+            }
+            for (Long sId : req.sachIds()) {
+                List<BanSaoSach> ds = banSaoSachRepository.findBySachId(sId);
+                BanSaoSach chon = ds.stream()
+                        .filter(b -> "SAN_SANG".equals(b.getTrangThai()))
+                        .findFirst()
+                        .orElse(null);
+                if (chon == null) {
+                    chon = new BanSaoSach();
+                    chon.setSachId(sId);
+                    chon.setMaVach("BC-" + sId + "-" + (ds.size() + 1));
+                    chon.setViTriKe("Kệ K" + (sId % 5 + 1));
+                    chon.setTinhTrang("TOT");
+                    chon.setTrangThai("SAN_SANG");
+                    chon.setNgayNhap(LocalDate.now());
+                    chon = banSaoSachRepository.save(chon);
+                }
+                danhSachBanSao.add(chon);
+            }
+        } else {
+            throw new RuntimeException("Vui lòng chọn ít nhất 1 cuốn sách để mượn");
         }
 
         // Tao phieu muon

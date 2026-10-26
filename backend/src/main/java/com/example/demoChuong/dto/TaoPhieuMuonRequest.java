@@ -7,5 +7,10 @@ public record TaoPhieuMuonRequest(
         Long nhanVienId,
         String ghiChu,
         List<Long> banSaoSachIds,
+        List<Long> sachIds,
         Integer soNgayMuon
-) {}
+) {
+    public TaoPhieuMuonRequest(Long docGiaId, Long nhanVienId, String ghiChu, List<Long> banSaoSachIds, Integer soNgayMuon) {
+        this(docGiaId, nhanVienId, ghiChu, banSaoSachIds, null, soNgayMuon);
+    }
+}

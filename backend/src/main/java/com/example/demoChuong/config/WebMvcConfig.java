@@ -21,9 +21,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // Cho phep truy cap cac anh trong public neu co
         File publicDir = new File("public");
         if (publicDir.exists()) {
-            registry.addResourceHandler("/public/**", "/shop/**", "/admin/**")
-                    .addResourceLocations("file:" + publicDir.getAbsolutePath() + "/",
+            registry.addResourceHandler("/public/**", "/shop/**", "/admin/**", "/images/**")
+                    .addResourceLocations(
+                            "file:" + publicDir.getAbsolutePath() + "/",
                             "file:" + publicDir.getAbsolutePath() + "/shop/",
+                            "file:" + publicDir.getAbsolutePath() + "/shop/images/",
                             "file:" + publicDir.getAbsolutePath() + "/admin/");
         }
     }
