@@ -10,12 +10,14 @@ import {
     FiFileText,
     FiUsers,
     FiDollarSign,
+    FiCamera,
     FiExternalLink,
 } from "react-icons/fi";
 
 // Menu Quản lý Thư viện
 const menu = [
     { name: "Tổng quan", link: "/admin", icon: FiHome },
+    { name: "Quét mã & Camera", link: "/admin/quetma", icon: FiCamera },
     { name: "Quản lý Sách", link: "/admin/sanpham", icon: FiBook },
     { name: "Danh mục sách", link: "/admin/danhmuc", icon: FiGrid },
     { name: "Tác giả", link: "/admin/tacgia", icon: FiUserCheck },

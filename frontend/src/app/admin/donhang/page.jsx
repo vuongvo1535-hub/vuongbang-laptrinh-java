@@ -78,12 +78,20 @@ export default function PhieuMuonAdminPage() {
                     <h1 className="text-2xl font-bold text-gray-800">Phiếu Mượn - Trả Sách</h1>
                     <p className="text-sm text-gray-500">Quản lý các phiếu mượn sách của độc giả</p>
                 </div>
-                <button
-                    onClick={() => router.push("/admin/donhang/tao")}
-                    className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                    + Tạo phiếu mượn mới
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => router.push("/admin/quetma")}
+                        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                    >
+                        📷 Quét mã vạch / QR
+                    </button>
+                    <button
+                        onClick={() => router.push("/admin/donhang/tao")}
+                        className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+                    >
+                        + Tạo phiếu mượn mới
+                    </button>
+                </div>
             </div>
 
             {/* Bộ lọc */}

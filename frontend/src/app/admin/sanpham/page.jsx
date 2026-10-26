@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getSanPhams, deleteSanPham } from "@/services/admin/sanPhamService";
 import Pagination from "@/components/common/Pagination";
 import API_CONFIG from "@/config/api";
+import { layDuongDanAnh } from "@/utils/format";
 
 const PAGE_SIZE = 10;
 
@@ -114,12 +115,16 @@ export default function SanPhamAdminPage() {
                                         <td className="px-5 py-4">
                                             {anhBia ? (
                                                 <img
-                                                    src={anhBia.startsWith("http") ? anhBia : `${API_CONFIG.IMAGE_URL}${anhBia}`}
+                                                    src={layDuongDanAnh(anhBia)}
                                                     alt={tenSach}
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = `http://localhost:8080/shop/images/sach/${anhBia}`;
+                                                    }}
                                                     className="w-10 h-14 object-cover rounded shadow-sm"
                                                 />
                                             ) : (
-                                                <div className="w-10 h-14 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">📚</div>
+                                                <div className="w-10 h-14 rounded bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs font-semibold">📚</div>
                                             )}
                                         </td>
                                         <td className="px-5 py-4 font-medium text-gray-900 max-w-xs">

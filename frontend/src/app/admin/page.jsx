@@ -81,13 +81,23 @@ export default function AdminPage() {
     return (
         <div>
             {/* Tiêu đề */}
-            <div className="mb-7">
-                <h1 className="text-2xl font-bold text-gray-800">
-                    Chào mừng trở lại, Quản trị viên 👋
-                </h1>
-                <p className="mt-1 text-sm text-gray-500">
-                    Hệ thống quản lý kho sách, bạn đọc, mượn trả và tiền phạt thư viện.
-                </p>
+            <div className="mb-7 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800">
+                        Chào mừng trở lại, Quản trị viên 👋
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Hệ thống quản lý kho sách, bạn đọc, mượn trả và tiền phạt thư viện.
+                    </p>
+                </div>
+
+                <Link
+                    href="/admin/quetma"
+                    className="inline-flex items-center gap-2 self-start bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition"
+                >
+                    <span>📷</span>
+                    <span>Web Quét Mã Vạch & Camera</span>
+                </Link>
             </div>
 
             {/* 4 Thẻ thống kê */}
