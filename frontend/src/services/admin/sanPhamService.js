@@ -12,11 +12,23 @@ function chuanHoaDuLieu(item) {
     return {
         ...item,
         ten_san_pham: item.tenSach || item.ten_san_pham || "",
-        ma_san_pham: item.maSach || item.ma_san_pham || "",
+        tenSach: item.tenSach || item.ten_san_pham || "",
+        ma_san_pham: item.maSach || item.ma_san_pham || `DEMO00${item.id}`,
+        maSach: item.maSach || item.ma_san_pham || `DEMO00${item.id}`,
+        duong_dan: item.maSach || item.ma_san_pham || `DEMO00${item.id}`,
+        danh_muc_id: item.danhMucId || item.danh_muc_id || "",
+        danhMucId: item.danhMucId || item.danh_muc_id || "",
+        thuong_hieu_id: item.nhaXuatBanId || item.thuong_hieu_id || "",
+        nhaXuatBanId: item.nhaXuatBanId || item.thuong_hieu_id || "",
         gia: item.giaTien ?? item.gia ?? 0,
+        giaTien: item.giaTien ?? item.gia ?? 0,
+        gia_khuyen_mai: "",
         hinh_anh_dai_dien: item.anhBia || item.hinh_anh_dai_dien || "",
-        trang_thai: item.trangThai === "DANG_LUU_HANH" ? 1 : 0,
+        anhBia: item.anhBia || item.hinh_anh_dai_dien || "",
+        trang_thai: item.trangThai === "DANG_LUU_HANH" || item.trang_thai === 1 ? 1 : 0,
         so_luong_ton: item.soTrang || 5,
+        mo_ta_ngan: item.moTa || item.mo_ta || "",
+        mo_ta_chi_tiet: item.moTa || item.mo_ta || "",
     };
 }
 
