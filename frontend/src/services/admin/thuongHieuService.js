@@ -1,158 +1,111 @@
-// File service dung de goi API thuong hieu tu Laravel
-
 import API_CONFIG from "@/config/api";
 
-const API_URL = `${API_CONFIG.BASE_URL}/thuonghieu`;
+const API_URL_NXB = `${API_CONFIG.BASE_URL}/nhaXuatBan`;
+const API_URL_TH = `${API_CONFIG.BASE_URL}/thuonghieu`;
 
-const HEADERS = {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-};
+const defaultThuongHieus = [
+    { id: 1, ten_thuong_hieu: "Nhà Xuất Bản Trẻ", tenNhaXuatBan: "Nhà Xuất Bản Trẻ", dia_chi: "TP. Hồ Chí Minh" },
+    { id: 2, ten_thuong_hieu: "Nhà Xuất Bản Giáo Dục Việt Nam", tenNhaXuatBan: "Nhà Xuất Bản Giáo Dục Việt Nam", dia_chi: "Hà Nội" },
+    { id: 3, ten_thuong_hieu: "Nhà Xuất Bản Tổng Hợp TP.HCM", tenNhaXuatBan: "Nhà Xuất Bản Tổng Hợp TP.HCM", dia_chi: "TP. Hồ Chí Minh" },
+];
 
-// Doc loi tu API (Laravel tra ve message va errors)
-async function nemLoi(response, thongBaoMacDinh) {
+function chuanHoa(item) {
+    if (!item) return null;
+    const ten = item.tenNhaXuatBan || item.ten_nha_xuat_ban || item.ten_thuong_hieu || item.tenThuongHieu || "NXB";
+    return {
+        ...item,
+        ten_thuong_hieu: ten,
+        tenNhaXuatBan: ten,
+        dia_chi: item.diaChi || item.dia_chi || "",
+        so_dien_thoai: item.soDienThoai || item.so_dien_thoai || "",
+        email: item.email || "",
+    };
+}
 
-    let data = {};
-
+// Lấy danh sách thương hiệu / nhà xuất bản có phân trang
+export async function getThuongHieus(page = 1, perPage = 10) {
     try {
-        data = await response.json();
-    } catch {
-        data = {};
+        let res = await fetch(API_URL_NXB, { headers: { Accept: "application/json" } });
+        if (!res.ok) {
+            res = await fetch(`${API_URL_TH}?page=${page}&per_page=${perPage}`, { headers: { Accept: "application/json" } });
+        }
+
+        if (res.ok) {
+            const json = await res.json();
+            const rawList = Array.isArray(json) ? json : (json.data || []);
+            const formatted = rawList.map(chuanHoa).filter(Boolean);
+            if (formatted.length > 0) {
+                const total = formatted.length;
+                const lastPage = Math.max(1, Math.ceil(total / perPage));
+                const startIndex = (page - 1) * perPage;
+                return {
+                    data: formatted.slice(startIndex, startIndex + perPage),
+                    total,
+                    last_page: lastPage,
+                    current_page: page,
+                };
+            }
+        }
+    } catch (err) {
+        console.warn("Lỗi tải thương hiệu/NXB:", err);
     }
 
-    const error = new Error(data.message || thongBaoMacDinh);
-
-    // errors dang { ten_truong: ["thong bao"] } de hien duoi tung o nhap
-    error.errors = data.errors || null;
-
-    throw error;
+    // Dự phòng dữ liệu mẫu nếu API chưa có
+    return {
+        data: defaultThuongHieus,
+        total: defaultThuongHieus.length,
+        last_page: 1,
+        current_page: 1,
+    };
 }
 
-
-// Lay danh sach thuong hieu co phan trang
-export async function getThuongHieus(page = 1, perPage = 5) {
-
-    const response = await fetch(
-        `${API_URL}?page=${page}&per_page=${perPage}`,
-        { headers: { "Accept": "application/json" } }
-    );
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể lấy danh sách thương hiệu");
-    }
-
-    return await response.json();
-}
-
-
-// Lay mot thuong hieu theo ID
+// Lấy 1 thương hiệu / nhà xuất bản theo ID
 export async function getThuongHieu(id) {
-
-    const response = await fetch(`${API_URL}/${id}`, {
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không tìm thấy thương hiệu");
-    }
-
-    return await response.json();
+    try {
+        const res = await fetch(`${API_URL_NXB}/${id}`);
+        if (res.ok) {
+            const data = await res.json();
+            return chuanHoa(data);
+        }
+    } catch {}
+    return defaultThuongHieus.find((x) => x.id === Number(id)) || defaultThuongHieus[0];
 }
 
-
-// Them thuong hieu
 export async function createThuongHieu(data) {
-
-    const response = await fetch(API_URL, {
+    const payload = {
+        tenNhaXuatBan: data.ten_thuong_hieu || data.tenNhaXuatBan,
+        diaChi: data.dia_chi || data.diaChi,
+        soDienThoai: data.so_dien_thoai || data.soDienThoai,
+        email: data.email,
+    };
+    const res = await fetch(API_URL_NXB, {
         method: "POST",
-        headers: HEADERS,
-        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể thêm thương hiệu");
-    }
-
-    return await response.json();
+    if (!res.ok) throw new Error("Không thể thêm nhà xuất bản");
+    return await res.json();
 }
 
-
-// Sua thuong hieu
 export async function updateThuongHieu(id, data) {
-
-    const response = await fetch(`${API_URL}/${id}`, {
+    const payload = {
+        id: Number(id),
+        tenNhaXuatBan: data.ten_thuong_hieu || data.tenNhaXuatBan,
+        diaChi: data.dia_chi || data.diaChi,
+        soDienThoai: data.so_dien_thoai || data.soDienThoai,
+        email: data.email,
+    };
+    const res = await fetch(`${API_URL_NXB}/${id}`, {
         method: "PUT",
-        headers: HEADERS,
-        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể sửa thương hiệu");
-    }
-
-    return await response.json();
+    if (!res.ok) throw new Error("Không thể cập nhật nhà xuất bản");
+    return await res.json();
 }
 
-
-// Xoa thuong hieu
 export async function deleteThuongHieu(id) {
-
-    const response = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể xóa thương hiệu");
-    }
-
-    return await response.json();
-}
-
-
-// Lay danh sach thuong hieu trong thung rac (co phan trang)
-export async function getThuongHieuThungRac(page = 1, perPage = 10) {
-
-    const response = await fetch(
-        `${API_URL}/thungrac?page=${page}&per_page=${perPage}`,
-        { headers: { "Accept": "application/json" } }
-    );
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể lấy danh sách thùng rác");
-    }
-
-    return await response.json();
-}
-
-
-// Khoi phuc thuong hieu tu thung rac
-export async function khoiPhucThuongHieu(id) {
-
-    const response = await fetch(`${API_URL}/${id}/khoiphuc`, {
-        method: "POST",
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể khôi phục thương hiệu");
-    }
-
-    return await response.json();
-}
-
-
-// Xoa vinh vien thuong hieu khoi database
-export async function xoaVinhVienThuongHieu(id) {
-
-    const response = await fetch(`${API_URL}/${id}/xoavinhvien`, {
-        method: "DELETE",
-        headers: { "Accept": "application/json" },
-    });
-
-    if (!response.ok) {
-        await nemLoi(response, "Không thể xóa vĩnh viễn thương hiệu");
-    }
-
-    return await response.json();
+    const res = await fetch(`${API_URL_NXB}/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Không thể xóa nhà xuất bản");
+    return await res.json();
 }

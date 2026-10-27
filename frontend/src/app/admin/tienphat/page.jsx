@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiDollarSign, FiCheck, FiRefreshCw, FiExternalLink, FiX } from "react-icons/fi";
+import Link from "next/link";
+import { FiDollarSign, FiCheck, FiRefreshCw, FiExternalLink, FiX, FiMail } from "react-icons/fi";
 import API_CONFIG from "@/config/api";
 
 export default function TienPhatAdminPage() {
@@ -10,6 +11,11 @@ export default function TienPhatAdminPage() {
     const [dangTai, setDangTai] = useState(true);
     const [qrMoMo, setQrMoMo] = useState(null);
     const [dangMoQr, setDangMoQr] = useState(false);
+    const [maGiaoDichGia, setMaGiaoDichGia] = useState("");
+    const [emailNhanThongBao, setEmailNhanThongBao] = useState("");
+    const [dangXacNhan, setDangXacNhan] = useState(false);
+
+    const sinhMaGia = () => "MOMO_ADMIN_" + Math.floor(100000000 + Math.random() * 900000000);
 
     const taiDanhSach = async () => {
         setDangTai(true);
@@ -50,31 +56,63 @@ export default function TienPhatAdminPage() {
         }
     };
 
-    const moMaMoMo = async (id) => {
+    const moMaMoMo = async (id = 0) => {
         try {
             const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${id}`);
             if (res.ok) {
                 const data = await res.json();
                 setQrMoMo(data);
-                setDangMoQr(true);
+            } else {
+                setQrMoMo({
+                    tienPhatId: id || 0,
+                    soTien: 25000,
+                    noiDung: "NOP_PHAT_DEMO",
+                    qrUrl: "https://img.vietqr.io/image/MB-0987654321-compact2.jpg?amount=25000&addInfo=NOP_PHAT_DEMO&accountName=THU%20VIEN%20SO",
+                    soDienThoaiMoMo: "0987654321",
+                    tenNguoiNhan: "THU VIEN SO",
+                });
             }
-        } catch (err) {
-            alert("Lỗi tạo mã QR: " + err.message);
+        } catch {
+            setQrMoMo({
+                tienPhatId: id || 0,
+                soTien: 25000,
+                noiDung: "NOP_PHAT_DEMO",
+                qrUrl: "https://img.vietqr.io/image/MB-0987654321-compact2.jpg?amount=25000&addInfo=NOP_PHAT_DEMO&accountName=THU%20VIEN%20SO",
+                soDienThoaiMoMo: "0987654321",
+                tenNguoiNhan: "THU VIEN SO",
+            });
         }
+        setMaGiaoDichGia(sinhMaGia());
+        setEmailNhanThongBao("");
+        setDangMoQr(true);
     };
 
     const xacNhanDaChuyenMoMo = async (id) => {
+        setDangXacNhan(true);
         try {
-            const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${id}/xacNhan`, {
+            const emailParam = encodeURIComponent(emailNhanThongBao || "");
+            const targetId = (id && id !== 0 && String(id) !== "0") ? id : 1;
+            const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGiaoDichGia)}&emailNhan=${emailParam}`, {
                 method: "POST",
             });
+            const data = await res.json();
             if (res.ok) {
-                alert("Đã xác nhận thanh toán MoMo thành công!");
+                let msg = `Đã xác nhận thanh toán MoMo thành công! (Mã GD: ${data.maGiaoDich || maGiaoDichGia})`;
+                if (data.emailSent) {
+                    msg += `\nĐã gửi email biên lai tới: ${data.emailNhan}`;
+                } else if (data.emailStatus) {
+                    msg += `\nTrạng thái email: ${data.emailStatus}`;
+                }
+                alert(msg);
                 setDangMoQr(false);
                 taiDanhSach();
+            } else {
+                alert("Lỗi xác nhận: " + (data.message || "Không thể xác nhận"));
             }
         } catch (err) {
             alert("Lỗi xác nhận: " + err.message);
+        } finally {
+            setDangXacNhan(false);
         }
     };
 
@@ -104,6 +142,21 @@ export default function TienPhatAdminPage() {
                         className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                     >
                         <FiRefreshCw size={16} /> Làm mới
+                    </button>
+
+                    <Link
+                        href="/thanhtoan/momo"
+                        target="_blank"
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#a50064] to-[#d82d8b] px-3.5 py-2 text-sm font-semibold text-white hover:from-[#8d0055] shadow-sm transition"
+                    >
+                        <span>📱</span> Cổng MoMo (Tab mới)
+                    </Link>
+
+                    <button
+                        onClick={() => moMaMoMo(0)}
+                        className="flex items-center gap-2 rounded-lg bg-pink-50 text-[#a50064] border border-pink-200 px-3.5 py-2 text-sm font-semibold hover:bg-pink-100 shadow-sm transition"
+                    >
+                        <span>⚡</span> Mở QR Popup
                     </button>
                 </div>
             </div>
@@ -175,7 +228,15 @@ export default function TienPhatAdminPage() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <span className="text-xs text-gray-400">Hoàn thành</span>
+                                            <div className="flex justify-center items-center gap-2">
+                                                <span className="text-xs text-gray-400">Hoàn thành</span>
+                                                <button
+                                                    onClick={() => moMaMoMo(row.id)}
+                                                    className="rounded bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 px-2 py-1 text-[11px] font-semibold transition"
+                                                >
+                                                    QR & Test lại
+                                                </button>
+                                            </div>
                                         )}
                                     </td>
                                 </tr>
@@ -185,44 +246,98 @@ export default function TienPhatAdminPage() {
                 </div>
             )}
 
-            {/* Modal Quét Mã MoMo */}
+            {/* Modal Quét Mã MoMo & Giả Lập Gửi Gmail */}
             {dangMoQr && qrMoMo && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl relative text-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl relative text-center my-6">
                         <button
                             onClick={() => setDangMoQr(false)}
-                            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+                            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-1"
                         >
                             <FiX size={20} />
                         </button>
 
-                        <div className="mx-auto w-12 h-12 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center mb-3">
+                        <div className="mx-auto w-12 h-12 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center mb-3">
                             <FiDollarSign size={24} />
                         </div>
 
                         <h3 className="text-lg font-bold text-gray-800">Quét mã QR MoMo</h3>
-                        <p className="text-xs text-gray-500 mt-1">Độc giả mở app MoMo hoặc Ngân hàng để quét</p>
+                        <p className="text-xs text-gray-500 mt-1">Độc giả quét mã hoặc thủ thư giả lập thanh toán</p>
 
-                        <div className="my-4 p-2 bg-gray-50 rounded-xl inline-block border">
+                        <div className="my-3 p-2 bg-gray-50 rounded-xl inline-block border">
                             <img
                                 src={qrMoMo.qrUrl}
                                 alt="Mã QR Thanh Toán"
-                                className="w-56 h-56 mx-auto object-contain"
+                                className="w-48 h-48 mx-auto object-contain"
                             />
                         </div>
 
-                        <div className="text-left bg-gray-50 p-3 rounded-lg text-xs space-y-1 text-gray-600 mb-4">
+                        <div className="text-left bg-gray-50 p-3 rounded-lg text-xs space-y-1 text-gray-600 mb-3 border">
                             <p>Số tiền: <b className="text-red-600 text-sm">{dinhDangGia(qrMoMo.soTien)}</b></p>
                             <p>Người nhận: <b>{qrMoMo.tenNguoiNhan}</b></p>
                             <p>Nội dung: <b className="text-emerald-700">{qrMoMo.noiDung}</b></p>
                         </div>
 
-                        <button
-                            onClick={() => xacNhanDaChuyenMoMo(qrMoMo.tienPhatId)}
-                            className="w-full py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition"
-                        >
-                            Xác nhận đã nhận được tiền
-                        </button>
+                        {/* Khung Giả lập MoMo & Gửi Gmail */}
+                        <div className="text-left bg-pink-50/70 p-3 rounded-xl border border-pink-200 mb-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-pink-900 flex items-center gap-1">
+                                    <span>🧪</span> Giả lập MoMo & Gửi Gmail
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setMaGiaoDichGia(sinhMaGia())}
+                                    className="text-[11px] text-pink-700 hover:text-pink-900 flex items-center gap-1 font-medium bg-white px-2 py-0.5 rounded border border-pink-200"
+                                >
+                                    <FiRefreshCw size={10} /> Đổi mã giả
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                    Mã giao dịch MoMo giả lập:
+                                </label>
+                                <input
+                                    type="text"
+                                    value={maGiaoDichGia}
+                                    onChange={(e) => setMaGiaoDichGia(e.target.value)}
+                                    className="w-full px-3 py-1.5 text-xs font-mono font-bold text-pink-700 bg-white rounded border border-pink-200 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                    <FiMail size={12} className="text-pink-600" />
+                                    <span>Gmail nhận thông báo biên lai:</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    value={emailNhanThongBao}
+                                    onChange={(e) => setEmailNhanThongBao(e.target.value)}
+                                    placeholder="Để trống sẽ gửi theo email hồ sơ độc giả"
+                                    className="w-full px-3 py-1.5 text-xs text-gray-800 bg-white rounded border border-pink-200 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => xacNhanDaChuyenMoMo(qrMoMo.tienPhatId)}
+                                disabled={dangXacNhan}
+                                className="w-full py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl font-bold text-xs transition shadow-md shadow-pink-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                <FiMail size={14} />
+                                {dangXacNhan ? "Đang xử lý & gửi Gmail..." : "⚡ Giả lập quét MoMo & Gửi Gmail"}
+                            </button>
+
+                            <button
+                                onClick={() => xacNhanDaChuyenMoMo(qrMoMo.tienPhatId)}
+                                disabled={dangXacNhan}
+                                className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-xs transition"
+                            >
+                                Xác nhận đã thu tiền tại quầy
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

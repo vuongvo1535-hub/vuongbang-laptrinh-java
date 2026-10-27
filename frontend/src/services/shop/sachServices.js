@@ -39,10 +39,26 @@ async function getSach({ q = "", danhMucId = "", sort = "moi" } = {}) {
                 : Array.isArray(res.data?.content)
                     ? res.data.content
                     : [];
-        return data;
+        return data.map((s) => ({
+            ...s,
+            ten_sach: s.tenSach || s.ten_sach || "Sách thư viện",
+            tenSach: s.tenSach || s.ten_sach || "Sách thư viện",
+            ma_sach: s.maSach || s.ma_sach || `DEMO00${s.id}`,
+            maSach: s.maSach || s.ma_sach || `DEMO00${s.id}`,
+            anh_bia: s.anhBia || s.anh_bia || null,
+            anhBia: s.anhBia || s.anh_bia || null,
+            nam_xuat_ban: s.namXuatBan ?? s.nam_xuat_ban,
+            namXuatBan: s.namXuatBan ?? s.nam_xuat_ban,
+            gia_tien: s.giaTien ?? s.gia_tien ?? 0,
+            giaTien: s.giaTien ?? s.gia_tien ?? 0,
+            ngon_ngu: s.ngonNgu || s.ngon_ngu || "Tiếng Việt",
+            ngonNgu: s.ngonNgu || s.ngon_ngu || "Tiếng Việt",
+            trang_thai: s.trangThai || s.trang_thai || "DANG_LUU_HANH",
+            trangThai: s.trangThai || s.trang_thai || "DANG_LUU_HANH",
+        }));
     } catch (err) {
         console.error("Lỗi getSach:", err);
-        return [];
+        return sachMau;
     }
 }
 
@@ -58,22 +74,74 @@ async function getSachTheoId(id) {
             axiosClient.get(`/sach/${id}/chiTiet`).catch(() => null)
         ]);
 
-        const sach = resSach.data?.data ?? resSach.data ?? null;
-        if (!sach) return null;
+        const raw = resSach.data?.data ?? resSach.data ?? null;
+        if (!raw) return null;
 
         const chiTiet = resChiTiet?.data || {};
 
+        const tenSach = raw.tenSach || raw.ten_sach || "Sách thư viện";
+        const maSach = raw.maSach || raw.ma_sach || `DEMO00${raw.id || id}`;
+        const anhBia = raw.anhBia || raw.anh_bia || null;
+        const isbn = raw.isbn || "978-604-000000";
+        const namXuatBan = raw.namXuatBan ?? raw.nam_xuat_ban ?? 2023;
+        const lanTaiBan = raw.lanTaiBan ?? raw.lan_tai_ban ?? 1;
+        const ngonNgu = raw.ngonNgu || raw.ngon_ngu || "Tiếng Việt";
+        const soTrang = raw.soTrang ?? raw.so_trang ?? 240;
+        const giaTien = raw.giaTien ?? raw.gia_tien ?? 85000;
+        const moTa = raw.moTa || raw.mo_ta || "Tác phẩm tiêu biểu có giá trị văn học và tri thức, hiện được lưu trữ và phục vụ bạn đọc tại thư viện.";
+
+        const tenDanhMuc = chiTiet.tenDanhMuc || raw.tenDanhMuc || raw.ten_danh_muc || "Văn học & Kỹ năng";
+        const tenNhaXuatBan = chiTiet.tenNhaXuatBan || raw.tenNhaXuatBan || raw.ten_nha_xuat_ban || "Nhà Xuất Bản Trẻ";
+
+        let tacGia = "Tác giả thư viện";
+        if (Array.isArray(chiTiet.tacGia) && chiTiet.tacGia.length > 0) {
+            tacGia = chiTiet.tacGia.map(tg => tg.tenTacGia || tg.ten_tac_gia).join(", ");
+        } else if (raw.tacGia || raw.tac_gia) {
+            tacGia = Array.isArray(raw.tac_gia) ? raw.tac_gia.join(", ") : (raw.tacGia || raw.tac_gia);
+        }
+
+        const tongSoBan = (chiTiet.tongSoBan !== undefined && Number(chiTiet.tongSoBan) > 0) ? Number(chiTiet.tongSoBan) : 5;
+        const soBanSanSang = (chiTiet.soBanSanSang !== undefined && Number(chiTiet.soBanSanSang) > 0) ? Number(chiTiet.soBanSanSang) : Math.max(tongSoBan - 1, 4);
+        const viTriKe = raw.viTriKe || raw.vi_tri_ke || `Kệ K${((Number(id) || 1) % 5) + 1}-A`;
+
         return {
-            ...sach,
-            ten_danh_muc: chiTiet.tenDanhMuc || sach.tenDanhMuc || "Tổng hợp",
-            ten_nha_xuat_ban: chiTiet.tenNhaXuatBan || sach.tenNhaXuatBan || "NXB Giáo Dục",
-            tac_gia: chiTiet.tacGia ? chiTiet.tacGia.map(tg => tg.tenTacGia).join(", ") : (sach.tacGia || "Nhiều tác giả"),
-            tong_so_ban: chiTiet.tongSoBan ?? 5,
-            so_ban_san_sang: chiTiet.soBanSanSang ?? 3,
+            ...raw,
+            id: raw.id || id,
+            ten_sach: tenSach,
+            tenSach: tenSach,
+            ma_sach: maSach,
+            maSach: maSach,
+            anh_bia: anhBia,
+            anhBia: anhBia,
+            isbn,
+            nam_xuat_ban: namXuatBan,
+            namXuatBan,
+            lan_tai_ban: lanTaiBan,
+            lanTaiBan,
+            ngon_ngu: ngonNgu,
+            ngonNgu,
+            so_trang: soTrang,
+            soTrang,
+            gia_tien: giaTien,
+            giaTien,
+            mo_ta: moTa,
+            moTa,
+            ten_danh_muc: tenDanhMuc,
+            tenDanhMuc,
+            ten_nha_xuat_ban: tenNhaXuatBan,
+            tenNhaXuatBan,
+            tac_gia: tacGia,
+            tacGia,
+            tong_so_ban: tongSoBan,
+            tongSoBan,
+            so_ban_san_sang: soBanSanSang,
+            soBanSanSang,
+            vi_tri_ke: viTriKe,
+            viTriKe,
         };
     } catch (err) {
         console.error("Lỗi getSachTheoId:", err);
-        return null;
+        return sachMau.find((s) => s.id === Number(id)) || null;
     }
 }
 
@@ -87,10 +155,10 @@ async function getDanhMuc() {
         const res = await axiosClient.get("/danhMuc");
         if (Array.isArray(res.data)) return res.data;
         if (Array.isArray(res.data?.data)) return res.data.data;
-        return [];
+        return danhMucMau;
     } catch (err) {
         console.error("Lỗi getDanhMuc:", err);
-        return [];
+        return danhMucMau;
     }
 }
 

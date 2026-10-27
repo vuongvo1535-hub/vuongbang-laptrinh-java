@@ -11,7 +11,7 @@ import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/nhaXuatBan")
+@RequestMapping({"/api/nhaXuatBan", "/api/nhaxuatban", "/api/thuonghieu", "/api/thuongHieu"})
 public class NhaXuatBanController {
 
     private final NhaXuatBanService service;

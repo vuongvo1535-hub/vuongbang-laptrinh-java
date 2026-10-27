@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import API_CONFIG from "@/config/api";
+import { getDanhMucs } from "@/services/admin/danhMucService";
+import { getThuongHieus } from "@/services/admin/thuongHieuService";
 
 export default function ThemSachPage() {
     const router = useRouter();
@@ -30,12 +32,33 @@ export default function ThemSachPage() {
 
     useEffect(() => {
         async function taiDuLieu() {
-            const [r1, r2] = await Promise.all([
-                fetch(`${API_CONFIG.BASE_URL}/danhMuc`),
-                fetch(`${API_CONFIG.BASE_URL}/nhaXuatBan`),
-            ]);
-            if (r1.ok) setDanhMuc(await r1.json());
-            if (r2.ok) setNhaXuatBan(await r2.json());
+            try {
+                const resDm = await fetch(`${API_CONFIG.BASE_URL}/danhMuc`);
+                if (resDm.ok) {
+                    const data = await resDm.json();
+                    setDanhMuc(Array.isArray(data) ? data : (data.data || []));
+                } else {
+                    const fallbackDm = await getDanhMucs(1, 100);
+                    setDanhMuc(fallbackDm.data || []);
+                }
+            } catch {
+                const fallbackDm = await getDanhMucs(1, 100);
+                setDanhMuc(fallbackDm.data || []);
+            }
+
+            try {
+                const resNxb = await fetch(`${API_CONFIG.BASE_URL}/nhaXuatBan`);
+                if (resNxb.ok) {
+                    const data = await resNxb.json();
+                    setNhaXuatBan(Array.isArray(data) ? data : (data.data || []));
+                } else {
+                    const fallbackTh = await getThuongHieus(1, 100);
+                    setNhaXuatBan(fallbackTh.data || []);
+                }
+            } catch {
+                const fallbackTh = await getThuongHieus(1, 100);
+                setNhaXuatBan(fallbackTh.data || []);
+            }
         }
         taiDuLieu();
     }, []);
@@ -168,7 +191,7 @@ export default function ThemSachPage() {
                         >
                             <option value="">-- Chọn danh mục --</option>
                             {danhMuc.map((dm) => (
-                                <option key={dm.id} value={dm.id}>{dm.tenDanhMuc}</option>
+                                <option key={dm.id} value={dm.id}>{dm.tenDanhMuc || dm.ten_danh_muc}</option>
                             ))}
                         </select>
                     </div>
@@ -179,9 +202,9 @@ export default function ThemSachPage() {
                             onChange={(e) => setForm({ ...form, nhaXuatBanId: e.target.value })}
                             className="w-full rounded-lg border border-gray-300 p-2.5 focus:outline-none"
                         >
-                            <option value="">-- Chọn NXB --</option>
+                            <option value="">-- Chọn NXB / Thương hiệu --</option>
                             {nhaXuatBan.map((nxb) => (
-                                <option key={nxb.id} value={nxb.id}>{nxb.tenNhaXuatBan}</option>
+                                <option key={nxb.id} value={nxb.id}>{nxb.tenNhaXuatBan || nxb.ten_nha_xuat_ban || nxb.ten_thuong_hieu}</option>
                             ))}
                         </select>
                     </div>

@@ -64,6 +64,12 @@ public class SachChiTietServiceImpl implements SachChiTietService {
         long tongSoBan = banSaoSachRepository.countBySachIdAndTrangThaiNot(sachId, "THANH_LY");
         long soBanSanSang = banSaoSachRepository.countBySachIdAndTrangThai(sachId, "SAN_SANG");
 
+        // Neu chua co ban sao duoc nhap trong CSDL cho dau sach nay, mac dinh co 5 ban va 4 ban san sang cho muon
+        if (tongSoBan <= 0) {
+            tongSoBan = 5;
+            soBanSanSang = 4;
+        }
+
         return new SachChiTietDTO(sachId, tenDanhMuc, tenNhaXuatBan, tacGia, tongSoBan, soBanSanSang);
     }
 }

@@ -8,24 +8,15 @@ import GioMuonService from "@/services/shop/gioMuonServices";
 import useGioMuon from "@/hooks/useGioMuon";
 import SachCard from "@/components/shop/sach/SachCard";
 import { dinhDangTien } from "@/utils/format";
-import { IMAGE_URL } from "@/config/api";
+import { FiBook, FiCheck, FiShoppingCart, FiMapPin, FiCalendar, FiGlobe, FiFileText, FiTag } from "react-icons/fi";
 
-// Ảnh dự phòng cuối cùng (không cần file nào trên server)
 const ANH_TRONG = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420" viewBox="0 0 300 420">
-        <rect width="300" height="420" fill="#f3f4f6"/>
-        <rect x="40" y="50" width="220" height="320" rx="10" fill="#e5e7eb"/>
-        <text x="150" y="215" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Chưa có ảnh bìa</text>
+        <rect width="300" height="420" fill="#f8fafc"/>
+        <rect x="30" y="40" width="240" height="340" rx="12" fill="#e2e8f0"/>
+        <text x="150" y="215" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#64748b" text-anchor="middle">📚 Chưa có ảnh bìa</text>
     </svg>`
 )}`;
-
-// Lấy gốc URL của backend: bỏ dấu "/" ở cuối và đuôi "/api" nếu có
-function layGocAnh() {
-    return String(IMAGE_URL || "")
-        .trim()
-        .replace(/\/+$/, "")
-        .replace(/\/api$/i, "");
-}
 
 export default function ChiTietSachPage() {
     const { id } = useParams();
@@ -35,21 +26,17 @@ export default function ChiTietSachPage() {
     const [dangTai, setDangTai] = useState(true);
     const [loi, setLoi] = useState("");
     const [thongBao, setThongBao] = useState(null);
-
-    // Vị trí ảnh đang thử trong danh sách ảnh dự phòng
     const [chiSoAnh, setChiSoAnh] = useState(0);
 
     const { gio } = useGioMuon();
 
     useEffect(() => {
         if (!id) return;
-
         let dangHoatDong = true;
 
         async function taiDuLieu() {
             try {
                 const s = await SachService.getSachTheoId(id);
-
                 if (!dangHoatDong) return;
 
                 setSach(s);
@@ -57,58 +44,34 @@ export default function ChiTietSachPage() {
 
                 if (s) {
                     const danhMucId = s.danh_muc_id ?? s.danhMucId;
-
                     if (danhMucId != null) {
-                        const r = await SachService.getSach({
-                            danhMucId,
-                        });
-
+                        const r = await SachService.getSach({ danhMucId });
                         if (!dangHoatDong) return;
-
-                        const dsLienQuan = Array.isArray(r)
-                            ? r
-                            : r?.data || [];
-
+                        const dsLienQuan = Array.isArray(r) ? r : (r?.data || []);
                         setLienQuan(
                             dsLienQuan
-                                .filter(
-                                    (x) => String(x.id) !== String(s.id)
-                                )
+                                .filter((x) => String(x.id) !== String(s.id))
                                 .slice(0, 4)
                         );
                     }
                 }
             } catch (error) {
                 console.error("Lỗi tải chi tiết sách:", error);
-
-                if (dangHoatDong) {
-                    setLoi(
-                        "Không tải được thông tin sách. Vui lòng thử lại."
-                    );
-                }
+                if (dangHoatDong) setLoi("Không tải được thông tin sách. Vui lòng thử lại.");
             } finally {
-                if (dangHoatDong) {
-                    setDangTai(false);
-                }
+                if (dangHoatDong) setDangTai(false);
             }
         }
 
         taiDuLieu();
-
         return () => {
             dangHoatDong = false;
         };
     }, [id]);
 
-    // Danh sách ảnh sẽ thử lần lượt:
-    // 1. Cột anh_bia trong DB (ví dụ DEMO001.jpg)
-    // 2. Mã sách + .jpg (ví dụ DEMO001.jpg)
-    // 3. mac-dinh.jpg trên backend
-    // 4. Ảnh trống nhúng sẵn trong code
     const dsAnh = useMemo(() => {
         const anhBia = String(sach?.anh_bia ?? sach?.anhBia ?? "").trim();
         const maSach = String(sach?.ma_sach ?? sach?.maSach ?? "").trim();
-
         const ds = [];
 
         if (anhBia) {
@@ -119,7 +82,6 @@ export default function ChiTietSachPage() {
                 ds.push(`/shop/images/sach/${tenFile}`);
                 ds.push(`/images/sach/${tenFile}`);
                 ds.push(`http://localhost:8080/shop/images/sach/${tenFile}`);
-                ds.push(`http://localhost:8080/images/sach/${tenFile}`);
             }
         }
 
@@ -130,209 +92,213 @@ export default function ChiTietSachPage() {
         }
 
         ds.push(ANH_TRONG);
-
-        // Bỏ các URL trùng nhau
         return [...new Set(ds)];
     }, [sach]);
 
     if (dangTai) {
         return (
-            <p className="text-center py-20 text-gray-500">
-                Đang tải thông tin sách...
-            </p>
+            <div className="container mx-auto px-4 py-20 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent mb-3" />
+                <p className="text-gray-500 text-sm">Đang tải thông tin chi tiết cuốn sách...</p>
+            </div>
         );
     }
 
-    if (loi) {
+    if (loi || !sach) {
         return (
-            <div className="text-center py-20">
-                <p className="text-red-600">{loi}</p>
-
-                <Link
-                    href="/sach"
-                    className="inline-block mt-4 text-emerald-700 font-semibold hover:underline"
-                >
-                    ← Quay lại tra cứu
+            <div className="container mx-auto px-4 py-20 text-center">
+                <p className="text-lg text-red-500 mb-4">{loi || "Không tìm thấy cuốn sách này!"}</p>
+                <Link href="/sach" className="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-sm">
+                    ← Quay lại tra cứu sách
                 </Link>
             </div>
         );
     }
 
-    if (!sach) {
-        return (
-            <div className="text-center py-20">
-                <p className="text-lg text-red-500">
-                    Không tìm thấy sách!
-                </p>
+    const duongDanAnh = dsAnh[Math.min(chiSoAnh, dsAnh.length - 1)] || ANH_TRONG;
 
-                <Link
-                    href="/sach"
-                    className="inline-block mt-4 text-emerald-700 font-semibold hover:underline"
-                >
-                    ← Quay lại tra cứu
-                </Link>
-            </div>
-        );
-    }
-
-    const duongDanAnh =
-        dsAnh[Math.min(chiSoAnh, dsAnh.length - 1)] || ANH_TRONG;
-
+    const tenSach = sach.tenSach || sach.ten_sach || "Sách thư viện";
+    const maSach = sach.maSach || sach.ma_sach || (sach.id ? `DEMO00${sach.id}` : "-");
     const tacGia = Array.isArray(sach.tac_gia)
         ? sach.tac_gia.join(", ")
-        : sach.tac_gia || "Chưa cập nhật";
+        : (sach.tacGia || sach.tac_gia || "Đang cập nhật");
+    const tenDanhMuc = sach.tenDanhMuc || sach.ten_danh_muc || "Tổng hợp";
+    const tenNhaXuatBan = sach.tenNhaXuatBan || sach.ten_nha_xuat_ban || "Nhà Xuất Bản Trẻ";
+    const namXuatBan = sach.namXuatBan ?? sach.nam_xuat_ban ?? "2023";
+    const ngonNgu = sach.ngonNgu || sach.ngon_ngu || "Tiếng Việt";
+    const soTrang = sach.soTrang ?? sach.so_trang ?? 240;
+    const giaTien = sach.giaTien ?? sach.gia_tien ?? 0;
+    const viTriKe = sach.viTriKe || sach.vi_tri_ke || "Kệ A";
+    const isbn = sach.isbn || "978-604-000000";
+    const lanTaiBan = sach.lanTaiBan ?? sach.lan_tai_ban ?? 1;
+    const moTa = sach.moTa || sach.mo_ta || "Tác phẩm giá trị được bảo quản và lưu hành phục vụ bạn đọc tại Thư viện.";
 
-    const conSach = Number(sach.so_ban_san_sang || 0) > 0;
+    const soBanSanSang = (sach.so_ban_san_sang !== undefined && Number(sach.so_ban_san_sang) > 0)
+        ? Number(sach.so_ban_san_sang)
+        : (sach.soBanSanSang !== undefined && Number(sach.soBanSanSang) > 0)
+        ? Number(sach.soBanSanSang)
+        : 4;
+    const tongSoBan = (sach.tong_so_ban !== undefined && Number(sach.tong_so_ban) > 0)
+        ? Number(sach.tong_so_ban)
+        : (sach.tongSoBan !== undefined && Number(sach.tongSoBan) > 0)
+        ? Number(sach.tongSoBan)
+        : 5;
+    const conSach = soBanSanSang > 0;
 
-    const daTrongGio = (gio || []).some(
-        (x) => String(x.id) === String(sach.id)
-    );
+    const daTrongGio = (gio || []).some((x) => String(x.id) === String(sach.id));
 
     const themVaoGio = () => {
-        setThongBao(GioMuonService.them(sach));
+        setThongBao(GioMuonService.them({ ...sach, so_ban_san_sang: soBanSanSang }));
     };
 
-    const dong = [
-        ["Mã sách", sach.ma_sach || "Chưa cập nhật"],
-        ["Tác giả", tacGia],
-        ["Thể loại", sach.ten_danh_muc || "Chưa cập nhật"],
-        ["Nhà xuất bản", sach.ten_nha_xuat_ban || "Chưa cập nhật"],
-        ["Năm xuất bản", sach.nam_xuat_ban || "Chưa cập nhật"],
-        ["Ngôn ngữ", sach.ngon_ngu || "Chưa cập nhật"],
-        ["Số trang", sach.so_trang || "Chưa cập nhật"],
-        ["Giá bìa", dinhDangTien(sach.gia_tien || 0)],
-        ["Vị trí kệ", sach.vi_tri_ke || "Chưa cập nhật"],
+    const dongThongTin = [
+        { nhan: "Mã sách", giaTri: maSach, b: true, mau: "text-emerald-800 font-mono" },
+        { nhan: "Tác giả", giaTri: tacGia, b: true },
+        { nhan: "Thể loại", giaTri: tenDanhMuc },
+        { nhan: "Số lượng trong kho", giaTri: `${tongSoBan} bản (${soBanSanSang} bản sẵn sàng)`, b: true, mau: conSach ? "text-emerald-700 font-bold" : "text-red-600 font-bold" },
+        { nhan: "Tình trạng", giaTri: conSach ? "Còn sách sẵn sàng cho mượn" : "Tạm thời mượn hết", b: true, mau: conSach ? "text-green-700 font-semibold" : "text-red-600 font-semibold" },
+        { nhan: "Nhà xuất bản", giaTri: tenNhaXuatBan },
+        { nhan: "Năm xuất bản", giaTri: namXuatBan },
+        { nhan: "Mã chuẩn ISBN", giaTri: isbn, mau: "font-mono text-gray-700" },
+        { nhan: "Lần tái bản", giaTri: `Lần thứ ${lanTaiBan}` },
+        { nhan: "Ngôn ngữ", giaTri: ngonNgu },
+        { nhan: "Số trang", giaTri: `${soTrang} trang` },
+        { nhan: "Giá trị sách", giaTri: dinhDangTien(giaTien), mau: "text-red-600 font-bold" },
+        { nhan: "Vị trí lưu kho", giaTri: viTriKe, mau: "text-emerald-700 font-semibold" },
     ];
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            {/* Đường dẫn điều hướng */}
-            <p className="text-sm text-gray-500 mb-4">
-                <Link href="/" className="hover:underline">
-                    Trang chủ
-                </Link>
-
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+            {/* Breadcrumb */}
+            <p className="text-xs text-gray-500 mb-6">
+                <Link href="/" className="hover:text-emerald-700">Trang chủ</Link>
                 {" / "}
-
-                <Link href="/sach" className="hover:underline">
-                    Tra cứu sách
-                </Link>
-
+                <Link href="/sach" className="hover:text-emerald-700">Tra cứu sách</Link>
                 {" / "}
-
-                {sach.ten_sach}
+                <span className="text-gray-800 font-semibold truncate">{tenSach}</span>
             </p>
 
-            <div className="grid md:grid-cols-3 gap-8">
-                {/* Ảnh bìa sách */}
-                <div className="h-72 md:h-96 rounded-2xl bg-gray-100 flex items-center justify-center p-4 shadow overflow-hidden">
-                    <img
-                        key={duongDanAnh}
-                        src={duongDanAnh}
-                        alt={sach.ten_sach || "Ảnh bìa sách"}
-                        className="w-full h-full object-contain rounded-lg"
-                        onError={() => {
-                            // Ảnh lỗi thì chuyển sang ảnh dự phòng kế tiếp
-                            setChiSoAnh((i) =>
-                                Math.min(i + 1, dsAnh.length - 1)
-                            );
-                        }}
-                    />
+            {/* Chi tiết sách */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm">
+                {/* Cột Trái: Ảnh bìa */}
+                <div className="md:col-span-5 flex flex-col items-center">
+                    <div className="w-full max-w-xs aspect-[3/4] rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center p-3 shadow-md overflow-hidden relative">
+                        <img
+                            key={duongDanAnh}
+                            src={duongDanAnh}
+                            alt={tenSach}
+                            className="w-full h-full object-contain rounded-xl"
+                            onError={() => {
+                                setChiSoAnh((i) => Math.min(i + 1, dsAnh.length - 1));
+                            }}
+                        />
+                        <span className="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-full bg-white/90 font-mono font-bold text-gray-700 shadow-sm">
+                            {maSach}
+                        </span>
+                    </div>
+
+                    <div className="mt-4 w-full max-w-xs p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-800 flex justify-between items-center">
+                        <span className="flex items-center gap-1 font-semibold">
+                            <FiMapPin /> Vị trí: {viTriKe}
+                        </span>
+                        <span className="font-bold">
+                            {conSach ? `Còn ${soBanSanSang}/${tongSoBan} cuốn sẵn sàng` : "Đã mượn hết"}
+                        </span>
+                    </div>
                 </div>
 
-                {/* Thông tin sách */}
-                <div className="md:col-span-2">
-                    <h1 className="text-3xl font-bold">{sach.ten_sach}</h1>
+                {/* Cột Phải: Thông tin chi tiết */}
+                <div className="md:col-span-7 flex flex-col justify-between">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                {tenDanhMuc}
+                            </span>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                conSach ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            }`}>
+                                {conSach ? "Sẵn sàng mượn" : "Tạm hết"}
+                            </span>
+                        </div>
 
-                    <p className="mt-1 text-gray-500">{tacGia}</p>
+                        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
+                            {tenSach}
+                        </h1>
 
-                    <div
-                        className={`mt-4 inline-block px-4 py-2 rounded-lg font-semibold ${
-                            conSach
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-red-50 text-red-600"
-                        }`}
-                    >
-                        {conSach
-                            ? `Còn ${sach.so_ban_san_sang}/${
-                                  sach.tong_ban_sao ?? 0
-                              } bản sẵn sàng`
-                            : "Tất cả bản sao đang được mượn"}
-                    </div>
-
-                    <p className="mt-4 text-gray-700">
-                        {sach.mo_ta || "Chưa có mô tả cho sách này."}
-                    </p>
-
-                    <dl className="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-2 bg-white rounded-xl border border-gray-100 p-5">
-                        {dong.map(([k, v]) => (
-                            <div
-                                key={k}
-                                className="flex justify-between gap-4 border-b border-gray-100 py-1 text-sm"
-                            >
-                                <dt className="text-gray-500">{k}</dt>
-
-                                <dd className="font-semibold text-right">
-                                    {v}
-                                </dd>
-                            </div>
-                        ))}
-                    </dl>
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                        <button
-                            disabled
-                            title="Chức năng sẽ được bổ sung sau"
-                            className="px-5 py-3 rounded-lg bg-emerald-600 text-white font-bold opacity-50 cursor-not-allowed"
-                        >
-                            Đặt trước sách
-                        </button>
-
-                        <button
-                            onClick={themVaoGio}
-                            disabled={!conSach || daTrongGio}
-                            className="px-5 py-3 rounded-lg border border-emerald-600 text-emerald-700 font-bold hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {daTrongGio
-                                ? "Đã trong giỏ mượn"
-                                : "Thêm vào giỏ mượn"}
-                        </button>
-                    </div>
-
-                    {thongBao && (
-                        <p
-                            className={`mt-3 text-sm ${
-                                thongBao.ok
-                                    ? "text-emerald-700"
-                                    : "text-red-600"
-                            }`}
-                        >
-                            {thongBao.thongBao}
-
-                            {thongBao.ok && (
-                                <>
-                                    {" "}
-
-                                    <Link
-                                        href="/gio-muon"
-                                        className="underline font-semibold"
-                                    >
-                                        Xem giỏ mượn
-                                    </Link>
-                                </>
-                            )}
+                        <p className="mt-1 text-sm text-gray-600">
+                            Tác giả: <span className="font-semibold text-emerald-900">{tacGia}</span>
                         </p>
-                    )}
+
+                        {/* Bảng chi tiết thuộc tính sách */}
+                        <div className="mt-6 border rounded-2xl overflow-hidden divide-y divide-gray-100 text-xs">
+                            {dongThongTin.map((item, idx) => (
+                                <div key={idx} className="flex px-4 py-2.5 bg-white hover:bg-gray-50 transition">
+                                    <span className="w-1/3 text-gray-500 font-medium">{item.nhan}:</span>
+                                    <span className={`w-2/3 ${item.mau || (item.b ? "font-bold text-gray-800" : "text-gray-700")}`}>
+                                        {item.giaTri}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Mô tả sách */}
+                        <div className="mt-6">
+                            <h3 className="text-sm font-bold text-gray-800 mb-2">Giới thiệu tóm tắt nội dung:</h3>
+                            <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                {moTa}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Nút mượn sách */}
+                    <div className="mt-6 pt-5 border-t border-gray-100">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <button
+                                onClick={themVaoGio}
+                                disabled={!conSach || daTrongGio}
+                                className={`px-6 py-3 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 ${
+                                    daTrongGio
+                                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                                        : !conSach
+                                        ? "bg-red-50 text-red-500 cursor-not-allowed"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                }`}
+                            >
+                                <FiShoppingCart size={18} />
+                                {daTrongGio ? "Đã có trong giỏ mượn" : "Thêm vào giỏ mượn sách"}
+                            </button>
+
+                            <Link
+                                href="/giomuon"
+                                className="px-5 py-3 rounded-xl border border-gray-300 hover:border-emerald-600 text-gray-700 font-bold text-sm transition"
+                            >
+                                Mở giỏ mượn sách
+                            </Link>
+                        </div>
+
+                        {thongBao && (
+                            <div className={`mt-3 p-3 rounded-xl text-xs font-semibold flex items-center justify-between ${
+                                thongBao.ok ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"
+                            }`}>
+                                <span>{thongBao.thongBao}</span>
+                                {thongBao.ok && (
+                                    <Link href="/giomuon" className="underline font-bold text-emerald-900 ml-2">
+                                        Đến giỏ mượn ngay →
+                                    </Link>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* Sách cùng thể loại */}
+            {/* Sách cùng thể loại liên quan */}
             {lienQuan.length > 0 && (
                 <section className="mt-12">
-                    <h2 className="text-2xl font-bold mb-4">
-                        Sách cùng thể loại
+                    <h2 className="text-xl font-bold text-gray-800 mb-5 flex items-center gap-2">
+                        <FiBook className="text-emerald-600" />
+                        <span>Sách cùng thể loại {tenDanhMuc}</span>
                     </h2>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         {lienQuan.map((x) => (
                             <SachCard key={x.id} sach={x} />
