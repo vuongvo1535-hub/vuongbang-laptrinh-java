@@ -26,41 +26,70 @@ export default function PhieuMuonUserPage() {
     };
 
     const taiDuLieu = async (docGiaId) => {
+        if (!docGiaId) {
+            setDsPhieu([]);
+            setDsPhat([]);
+            setDangTai(false);
+            return;
+        }
         setDangTai(true);
         try {
             // 1. Tải phiếu mượn của độc giả
-            const resPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${docGiaId || ""}`);
+            const resPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${encodeURIComponent(docGiaId)}`);
             if (resPhieu.ok) {
                 const dataPhieu = await resPhieu.json();
                 setDsPhieu(Array.isArray(dataPhieu) ? dataPhieu : []);
+            } else {
+                setDsPhieu([]);
             }
 
-            // 2. Tải danh sách tiền phạt
-            const resPhat = await fetch(`${API_CONFIG.BASE_URL}/tienPhat`);
+            // 2. Tải danh sách tiền phạt của riêng độc giả này (không bị lẫn dữ liệu người khác)
+            const resPhat = await fetch(`${API_CONFIG.BASE_URL}/tienPhat?docGiaId=${encodeURIComponent(docGiaId)}`);
             if (resPhat.ok) {
                 const dataPhat = await resPhat.json();
                 setDsPhat(Array.isArray(dataPhat) ? dataPhat : []);
+            } else {
+                setDsPhat([]);
             }
         } catch (err) {
             console.error("Lỗi tải dữ liệu:", err);
+            setDsPhieu([]);
+            setDsPhat([]);
         } finally {
             setDangTai(false);
         }
     };
 
-    useEffect(() => {
+    const kiemTraNguoiDung = () => {
         try {
             const raw = localStorage.getItem("user");
             if (raw) {
                 const parsed = JSON.parse(raw);
                 setUser(parsed);
-                taiDuLieu(parsed.docGiaId || parsed.taiKhoanId);
+                const currentDocGiaId = parsed.docGiaId || parsed.id || parsed.taiKhoanId;
+                taiDuLieu(currentDocGiaId);
             } else {
+                setUser(null);
+                setDsPhieu([]);
+                setDsPhat([]);
                 setDangTai(false);
             }
         } catch {
+            setUser(null);
+            setDsPhieu([]);
+            setDsPhat([]);
             setDangTai(false);
         }
+    };
+
+    useEffect(() => {
+        kiemTraNguoiDung();
+        window.addEventListener("user-auth-changed", kiemTraNguoiDung);
+        window.addEventListener("storage", kiemTraNguoiDung);
+        return () => {
+            window.removeEventListener("user-auth-changed", kiemTraNguoiDung);
+            window.removeEventListener("storage", kiemTraNguoiDung);
+        };
     }, []);
 
     // Mở mã QR thanh toán tiền phạt
@@ -103,7 +132,7 @@ export default function PhieuMuonUserPage() {
         try {
             const maGD = isFake ? (maGiaoDichGia || sinhMaGiaoDichGia()) : `MOMO_${Date.now()}`;
             const emailParam = encodeURIComponent(emailNhanThongBao || user?.email || "");
-            const targetId = (tienPhatId && tienPhatId !== 0 && String(tienPhatId) !== "0") ? tienPhatId : 1;
+            const targetId = (tienPhatId && tienPhatId !== 0 && String(tienPhatId) !== "0") ? tienPhatId : 0;
             const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGD)}&emailNhan=${emailParam}`, {
                 method: "POST",
             });
@@ -117,7 +146,10 @@ export default function PhieuMuonUserPage() {
                 }
                 setThongBao(msg);
                 setDangMoQr(false);
-                if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
+                if (user) {
+                    const currentDocGiaId = user.docGiaId || user.id || user.taiKhoanId;
+                    taiDuLieu(currentDocGiaId);
+                }
             } else {
                 alert(data.message || "Xác nhận thanh toán thất bại.");
             }

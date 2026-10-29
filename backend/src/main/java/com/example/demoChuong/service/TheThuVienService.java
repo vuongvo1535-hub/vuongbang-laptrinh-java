@@ -7,6 +7,7 @@ public interface TheThuVienService {
     List<TheThuVienDTO> layTatCa();
     TheThuVienDTO layTheoId(Long id);
     TheThuVienDTO layTheoDocGiaId(Long docGiaId);
+    TheThuVienDTO layTheoSoThe(String soThe);
     TheThuVienDTO capThe(TheThuVienDTO dto);
     TheThuVienDTO giaHan(Long id, int soThang);
     void xoa(Long id);

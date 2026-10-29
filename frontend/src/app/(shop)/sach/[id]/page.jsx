@@ -7,7 +7,7 @@ import SachService from "@/services/shop/sachServices";
 import GioMuonService from "@/services/shop/gioMuonServices";
 import useGioMuon from "@/hooks/useGioMuon";
 import SachCard from "@/components/shop/sach/SachCard";
-import { dinhDangTien } from "@/utils/format";
+import { dinhDangTien, layDuongDanAnh } from "@/utils/format";
 import { FiBook, FiCheck, FiShoppingCart, FiMapPin, FiCalendar, FiGlobe, FiFileText, FiTag } from "react-icons/fi";
 
 const ANH_TRONG = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
@@ -75,20 +75,15 @@ export default function ChiTietSachPage() {
         const ds = [];
 
         if (anhBia) {
-            if (/^https?:\/\//i.test(anhBia)) {
-                ds.push(anhBia);
-            } else {
-                const tenFile = encodeURIComponent(anhBia.replace(/^\/+/, ""));
-                ds.push(`/shop/images/sach/${tenFile}`);
-                ds.push(`/images/sach/${tenFile}`);
-                ds.push(`http://localhost:8080/shop/images/sach/${tenFile}`);
-            }
+            const duongDan = layDuongDanAnh(anhBia);
+            if (duongDan) ds.push(duongDan);
         }
 
         if (maSach) {
-            const tenMa = encodeURIComponent(maSach);
-            ds.push(`/shop/images/sach/${tenMa}.jpg`);
-            ds.push(`http://localhost:8080/shop/images/sach/${tenMa}.jpg`);
+            const duongDanMa = layDuongDanAnh(`${maSach}.jpg`);
+            if (duongDanMa && !ds.includes(duongDanMa)) {
+                ds.push(duongDanMa);
+            }
         }
 
         ds.push(ANH_TRONG);

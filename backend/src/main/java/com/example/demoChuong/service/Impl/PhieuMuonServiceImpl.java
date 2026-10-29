@@ -212,28 +212,40 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
             bss.setTrangThai("THANH_LY");
             bss.setTinhTrang("MAT");
 
-            // Phat lam mat sach (100.000d hoac gia tien sach)
+            // Phat lam mat sach: uu tien so tien do thu thu tu chinh, mac dinh 100.000d
+            BigDecimal soTienMat = (req.soTienPhat() != null && req.soTienPhat().compareTo(BigDecimal.ZERO) >= 0)
+                    ? req.soTienPhat()
+                    : new BigDecimal("100000");
+
             TienPhat tp = new TienPhat();
             tp.setChiTietPhieuMuonId(ct.getId());
             tp.setLyDo("LAM_MAT");
-            tp.setSoTien(new BigDecimal("100000"));
+            tp.setSoTien(soTienMat);
             tp.setNgayLap(gioTra);
             tp.setTrangThai("CHUA_THANH_TOAN");
-            tp.setGhiChu("Độc giả làm mất sách mã vạch: " + bss.getMaVach());
+            tp.setGhiChu(req.ghiChu() != null && !req.ghiChu().isBlank()
+                    ? req.ghiChu()
+                    : "Độc giả làm mất sách mã vạch: " + bss.getMaVach());
             tienPhatRepository.save(tp);
         } else if ("HU_HONG".equals(tinhTrangTra)) {
             ct.setTrangThai("HU_HONG");
             bss.setTrangThai("SAN_SANG");
             bss.setTinhTrang("HU_HONG");
 
-            // Phat lam hu hong sach (50.000d)
+            // Phat lam hu hong sach: uu tien so tien do thu thu tu chinh, mac dinh 50.000d
+            BigDecimal soTienHu = (req.soTienPhat() != null && req.soTienPhat().compareTo(BigDecimal.ZERO) >= 0)
+                    ? req.soTienPhat()
+                    : new BigDecimal("50000");
+
             TienPhat tp = new TienPhat();
             tp.setChiTietPhieuMuonId(ct.getId());
             tp.setLyDo("HU_HONG");
-            tp.setSoTien(new BigDecimal("50000"));
+            tp.setSoTien(soTienHu);
             tp.setNgayLap(gioTra);
             tp.setTrangThai("CHUA_THANH_TOAN");
-            tp.setGhiChu("Độc giả làm hư hại sách mã vạch: " + bss.getMaVach());
+            tp.setGhiChu(req.ghiChu() != null && !req.ghiChu().isBlank()
+                    ? req.ghiChu()
+                    : "Độc giả làm hư hại sách mã vạch: " + bss.getMaVach());
             tienPhatRepository.save(tp);
         } else {
             // Tra binh thuong (TOT hoac CU)

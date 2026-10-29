@@ -54,7 +54,18 @@ public class DocGiaServiceImpl implements DocGiaService {
 
     @Override
     public List<DocGiaDTO> timKiem(String tuKhoa) {
-        return repository.findByHoTenContainingIgnoreCase(tuKhoa).stream().map(mapper::toDTO).toList();
+        if (tuKhoa == null || tuKhoa.isBlank()) {
+            return layTatCa();
+        }
+        String clean = tuKhoa.trim();
+        if (clean.toUpperCase().startsWith("THE-")) {
+            String sub = clean.substring(4).trim();
+            List<DocGia> dsSub = repository.timKiemTatCa(sub);
+            if (!dsSub.isEmpty()) {
+                return dsSub.stream().map(mapper::toDTO).toList();
+            }
+        }
+        return repository.timKiemTatCa(clean).stream().map(mapper::toDTO).toList();
     }
 
     private DocGia timTheoId(Long id) {

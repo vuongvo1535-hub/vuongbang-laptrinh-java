@@ -12,4 +12,6 @@ public interface TheThuVienRepository extends JpaRepository<TheThuVien, Long> {
     Optional<TheThuVien> findByDocGiaId(Long docGiaId);
 
     Optional<TheThuVien> findBySoThe(String soThe);
+
+    Optional<TheThuVien> findBySoTheIgnoreCase(String soThe);
 }

@@ -13,30 +13,37 @@ export function dinhDangTien(tien) {
 
 // -----------------------------------------------------
 // DUONG DAN ANH BIA SACH
-// Tra ve duong dan hop le de hien thi anh, hoac duong dan mac dinh
+// Tra ve duong dan hop le de lay anh truc tiep tu backend
 // -----------------------------------------------------
 export function layDuongDanAnh(anhBia) {
     if (!anhBia) return null;
     const str = String(anhBia).trim();
     if (!str) return null;
 
-    // Neu la link ngoai hoac base64
+    // Neu la link ngoai (http://, https://) hoac base64
     if (/^(https?:|data:|\/\/)/i.test(str)) {
         return str;
     }
 
-    // Neu bat dau bang /shop hoac /images hoac /uploads
-    if (str.startsWith("/")) {
-        return str;
+    // Backend host goc (lay tu NEXT_PUBLIC_IMAGE_URL hoac mac dinh http://localhost:8080)
+    const envUrl = process.env.NEXT_PUBLIC_IMAGE_URL;
+    const gocBackend = (envUrl && /^https?:\/\//i.test(envUrl))
+        ? envUrl.replace(/\/+$/, "")
+        : "http://localhost:8080";
+
+    const cleanStr = str.replace(/^\/+/, "");
+
+    // Neu duong dan da co prefix shop/ hoac uploads/ hoac public/
+    if (cleanStr.startsWith("shop/") || cleanStr.startsWith("uploads/") || cleanStr.startsWith("public/")) {
+        return `${gocBackend}/${cleanStr}`;
     }
 
-    // Neu co cau hinh NEXT_PUBLIC_IMAGE_URL
-    const goc = process.env.NEXT_PUBLIC_IMAGE_URL;
-    if (goc && /^https?:\/\//i.test(goc)) {
-        const cleanGoc = goc.replace(/\/+$/, "");
-        return `${cleanGoc}/${str.replace(/^\/+/, "")}`;
+    // Neu bat dau bang images/
+    if (cleanStr.startsWith("images/")) {
+        return `${gocBackend}/shop/${cleanStr}`;
     }
 
-    // Mac dinh thu muc sach trong frontend/public
-    return `/shop/images/sach/${str.replace(/^\/+/, "")}`;
+    // Truong hop chi la ten file (vi du: DEMO001.jpg hoac ma sach DEMO001)
+    const tenFile = cleanStr.includes(".") ? cleanStr : `${cleanStr}.jpg`;
+    return `${gocBackend}/shop/images/sach/${tenFile}`;
 }

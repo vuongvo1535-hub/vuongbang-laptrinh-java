@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FiCamera } from "react-icons/fi";
 import SachService from "@/services/shop/sachServices";
 import SachCard from "@/components/shop/sach/SachCard";
+import BarcodeScannerModal from "@/components/shop/BarcodeScannerModal";
 
 const BUOC = [
     ["1", "Tra cứu", "Tìm sách theo tên, tác giả hoặc thể loại."],
@@ -19,6 +21,8 @@ export default function TrangChu() {
     const [sachMoi, setSachMoi] = useState([]);
     const [tong, setTong] = useState(0);
     const [loi, setLoi] = useState("");
+    const [moQuetMa, setMoQuetMa] = useState(false);
+    const [maQuetBanDau, setMaQuetBanDau] = useState("");
 
     useEffect(() => {
         (async () => {
@@ -38,7 +42,17 @@ export default function TrangChu() {
 
     const timKiem = (e) => {
         e.preventDefault();
-        router.push(q.trim() ? `/sach?q=${encodeURIComponent(q.trim())}` : "/sach");
+        const str = q.trim();
+        if (!str) return;
+
+        // Nếu quét mã thẻ độc giả hoặc mã bản sao sách
+        if (str.toUpperCase().startsWith("THE-") || str.toUpperCase().startsWith("THE") || str.toUpperCase().startsWith("DG") || str.toUpperCase().startsWith("BS-")) {
+            setMaQuetBanDau(str);
+            setMoQuetMa(true);
+            return;
+        }
+
+        router.push(`/sach?q=${encodeURIComponent(str)}`);
     };
 
     return (
@@ -47,20 +61,42 @@ export default function TrangChu() {
                 <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-10 md:p-16 text-center shadow-lg">
                     <h1 className="text-3xl md:text-5xl font-black">Khám phá kho sách của thư viện</h1>
                     <p className="mt-3 text-emerald-50">Tra cứu nhanh, biết ngay sách còn hay đã được mượn.</p>
-                    <form onSubmit={timKiem} className="mt-6 max-w-xl mx-auto flex">
+                    <form onSubmit={timKiem} className="mt-6 max-w-xl mx-auto flex items-center bg-white rounded-xl shadow-md p-1.5 border border-emerald-300">
                         <input
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
-                            placeholder="Nhập tên sách, tác giả..."
-                            className="flex-1 rounded-l-lg px-4 py-3 text-gray-900 focus:outline-none"
+                            placeholder="Nhập tên sách, tác giả hoặc mã thẻ..."
+                            className="flex-1 px-4 py-2.5 text-gray-900 focus:outline-none text-sm md:text-base"
                         />
-                        <button className="bg-amber-400 text-gray-900 font-bold px-6 rounded-r-lg hover:bg-amber-300 transition">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setMaQuetBanDau(q.trim());
+                                setMoQuetMa(true);
+                            }}
+                            title="Quét mã vạch hoặc mã QR bằng Camera"
+                            className="px-3.5 py-2.5 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap"
+                        >
+                            <FiCamera size={18} />
+                            <span className="hidden sm:inline">Quét mã</span>
+                        </button>
+                        <button type="submit" className="bg-amber-400 hover:bg-amber-300 text-gray-900 font-bold px-5 py-2.5 rounded-lg transition text-sm md:text-base whitespace-nowrap ml-1">
                             Tìm sách
                         </button>
                     </form>
                     {tong > 0 && <p className="mt-4 text-sm text-emerald-100">Hiện có {tong} đầu sách đang lưu hành</p>}
                 </div>
             </section>
+
+            {/* Modal Quét Mã Vạch & QR Thư Viện */}
+            <BarcodeScannerModal
+                mo={moQuetMa}
+                dong={() => {
+                    setMoQuetMa(false);
+                    setMaQuetBanDau("");
+                }}
+                maBanDau={maQuetBanDau}
+            />
 
             {loi && <p className="container mx-auto px-4 mt-6 text-red-600 font-medium">{loi}</p>}
 

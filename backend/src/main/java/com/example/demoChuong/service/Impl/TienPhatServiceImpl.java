@@ -26,8 +26,15 @@ public class TienPhatServiceImpl implements TienPhatService {
 
     @Override
     public List<TienPhatDTO> layTatCa(String trangThai) {
+        return layTatCa(null, trangThai);
+    }
+
+    @Override
+    public List<TienPhatDTO> layTatCa(Long docGiaId, String trangThai) {
         List<TienPhat> ds;
-        if (trangThai != null && !trangThai.isBlank()) {
+        if (docGiaId != null) {
+            ds = repository.findByDocGiaIdAndTrangThai(docGiaId, trangThai);
+        } else if (trangThai != null && !trangThai.isBlank()) {
             ds = repository.findByTrangThai(trangThai);
         } else {
             ds = repository.findAll();
@@ -65,6 +72,26 @@ public class TienPhatServiceImpl implements TienPhatService {
         chiTietTienPhatRepository.save(cttp);
 
         return toDTO(daLuu);
+    }
+
+    @Override
+    @Transactional
+    public TienPhatDTO capNhatSoTien(Long id, java.math.BigDecimal soTien, String ghiChu) {
+        TienPhat tp = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("tiền phạt", id));
+
+        if ("DA_THANH_TOAN".equals(tp.getTrangThai())) {
+            throw new RuntimeException("Không thể sửa số tiền của khoản phạt đã thanh toán");
+        }
+        if (soTien == null || soTien.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new RuntimeException("Số tiền phạt phải lớn hơn hoặc bằng 0");
+        }
+
+        tp.setSoTien(soTien);
+        if (ghiChu != null && !ghiChu.isBlank()) {
+            tp.setGhiChu(ghiChu);
+        }
+        return toDTO(repository.save(tp));
     }
 
     private TienPhatDTO toDTO(TienPhat e) {

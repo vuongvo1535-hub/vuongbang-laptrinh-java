@@ -12,7 +12,9 @@ import {
     FiRefreshCw,
     FiCheck,
     FiClock,
-    FiMapPin
+    FiMapPin,
+    FiUpload,
+    FiSquare
 } from "react-icons/fi";
 import API_CONFIG from "@/config/api";
 import { layDuongDanAnh, dinhDangTien } from "@/utils/format";
@@ -20,7 +22,10 @@ import { layDuongDanAnh, dinhDangTien } from "@/utils/format";
 export default function WebQuetMaAdminPage() {
     const [maQuet, setMaQuet] = useState("");
     const [dangQuetCamera, setDangQuetCamera] = useState(false);
+    const [dangTaiThuVien, setDangTaiThuVien] = useState(false);
     const [loiCamera, setLoiCamera] = useState("");
+    const [danhSachCamera, setDanhSachCamera] = useState([]);
+    const [cameraIdDuocChon, setCameraIdDuocChon] = useState("");
     const [dangTimKiem, setDangTimKiem] = useState(false);
     const [thongBao, setThongBao] = useState("");
     const [loi, setLoi] = useState("");
@@ -29,71 +34,178 @@ export default function WebQuetMaAdminPage() {
     const [ketQuaSach, setKetQuaSach] = useState(null);
     const [ketQuaThe, setKetQuaThe] = useState(null);
 
-    const videoRef = useRef(null);
-    const streamRef = useRef(null);
-    const detectorRef = useRef(null);
-    const intervalRef = useRef(null);
+    const scannerRef = useRef(null);
+    const fileInputRef = useRef(null);
 
-    // Bật / tắt Camera Web
-    const batCamera = async () => {
-        setLoiCamera("");
+    // Phát âm thanh beep ngắn khi quét trúng mã
+    const phatTiengBeep = () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" }
-            });
-            streamRef.current = stream;
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-            }
-            setDangQuetCamera(true);
-
-            // Kiểm tra BarcodeDetector của trình duyệt
-            if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-                try {
-                    detectorRef.current = new window.BarcodeDetector({
-                        formats: ["code_128", "code_39", "ean_13", "qr_code"]
-                    });
-                    batDauNhanDien();
-                } catch {
-                    // Trình duyệt không hỗ trợ BarcodeDetector
-                }
-            }
-        } catch (err) {
-            setLoiCamera("Không thể truy cập camera. Vui lòng cho phép quyền truy cập hoặc dùng súng quét mã vạch.");
-            setDangQuetCamera(false);
-        }
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.12);
+        } catch {}
     };
 
-    const tatCamera = () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-        }
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+    // Tắt Camera
+    const tatCamera = async () => {
+        if (scannerRef.current) {
+            try {
+                if (scannerRef.current.isScanning) {
+                    await scannerRef.current.stop();
+                }
+                scannerRef.current.clear();
+            } catch (err) {
+                console.warn("Lỗi khi tắt scanner:", err);
+            }
+            scannerRef.current = null;
         }
         setDangQuetCamera(false);
+        setDangTaiThuVien(false);
     };
 
-    const batDauNhanDien = () => {
-        if (!detectorRef.current || !videoRef.current) return;
-        intervalRef.current = setInterval(async () => {
-            if (!videoRef.current || videoRef.current.readyState < 2) return;
+    // Bật Camera Web với html5-qrcode
+    const batCamera = async (overrideCameraId = null) => {
+        setLoiCamera("");
+        setDangTaiThuVien(true);
+
+        try {
+            const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+
+            // Lấy danh sách camera trên thiết bị
             try {
-                const barcodes = await detectorRef.current.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                    const rawVal = barcodes[0].rawValue;
-                    if (rawVal) {
-                        tatCamera();
-                        xuLyTraCuuMa(rawVal);
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    setDanhSachCamera(devices);
+                    if (!cameraIdDuocChon && !overrideCameraId) {
+                        // Ưu tiên camera sau (back/environment) nếu có
+                        const backCam = devices.find((d) =>
+                            d.label.toLowerCase().includes("back") ||
+                            d.label.toLowerCase().includes("sau") ||
+                            d.label.toLowerCase().includes("environment")
+                        );
+                        setCameraIdDuocChon(backCam ? backCam.id : devices[0].id);
                     }
                 }
-            } catch {
-                // Tiếp tục thử
+            } catch (camErr) {
+                console.warn("Không lấy được danh sách camera:", camErr);
             }
-        }, 500);
+
+            setDangQuetCamera(true);
+            setDangTaiThuVien(false);
+
+            // Chờ DOM hiển thị phần tử #reader-barcode-scanner
+            setTimeout(async () => {
+                try {
+                    const el = document.getElementById("reader-barcode-scanner");
+                    if (!el) return;
+
+                    // Nếu đã có scanner cũ, dọn dẹp trước
+                    if (scannerRef.current) {
+                        try {
+                            if (scannerRef.current.isScanning) {
+                                await scannerRef.current.stop();
+                            }
+                            scannerRef.current.clear();
+                        } catch {}
+                    }
+
+                    const scanner = new Html5Qrcode("reader-barcode-scanner");
+                    scannerRef.current = scanner;
+
+                    const config = {
+                        fps: 15,
+                        qrbox: (viewfinderWidth, viewfinderHeight) => {
+                            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                            const qrboxWidth = Math.floor(minEdge * 0.85);
+                            const qrboxHeight = Math.floor(minEdge * 0.6);
+                            return { width: Math.max(qrboxWidth, 240), height: Math.max(qrboxHeight, 160) };
+                        },
+                        formatsToSupport: [
+                            Html5QrcodeSupportedFormats.QR_CODE,
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.EAN_8,
+                            Html5QrcodeSupportedFormats.UPC_A,
+                            Html5QrcodeSupportedFormats.UPC_E,
+                            Html5QrcodeSupportedFormats.CODABAR,
+                        ],
+                    };
+
+                    const activeCamId = overrideCameraId || cameraIdDuocChon;
+                    const cameraSource = activeCamId ? { deviceId: { exact: activeCamId } } : { facingMode: "environment" };
+
+                    await scanner.start(
+                        cameraSource,
+                        config,
+                        (decodedText) => {
+                            // Quét thành công!
+                            phatTiengBeep();
+                            tatCamera();
+                            setMaQuet(decodedText);
+                            xuLyTraCuuMa(decodedText);
+                        },
+                        () => {
+                            // Khung hình chưa tìm thấy mã - tiếp tục quét
+                        }
+                    );
+                } catch (startErr) {
+                    console.error("Lỗi khởi chạy camera:", startErr);
+                    setLoiCamera("Không thể truy cập camera: " + (startErr.message || startErr) + ". Vui lòng cấp quyền camera cho trình duyệt.");
+                    setDangQuetCamera(false);
+                }
+            }, 300);
+        } catch (err) {
+            console.error("Lỗi nạp thư viện html5-qrcode:", err);
+            setLoiCamera("Lỗi tải bộ quét camera: " + err.message);
+            setDangQuetCamera(false);
+            setDangTaiThuVien(false);
+        }
+    };
+
+    // Đổi camera khi có nhiều camera
+    const doiCamera = async (newCamId) => {
+        setCameraIdDuocChon(newCamId);
+        await tatCamera();
+        setTimeout(() => {
+            batCamera(newCamId);
+        }, 400);
+    };
+
+    // Quét mã từ file ảnh do người dùng tải lên
+    const quetTuFileAnh = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setLoi("");
+        setThongBao("Đang phân tích hình ảnh để tìm mã vạch / QR...");
+        setDangTimKiem(true);
+
+        try {
+            const { Html5Qrcode } = await import("html5-qrcode");
+            const scanner = new Html5Qrcode("reader-file-temp");
+            const decodedText = await scanner.scanFile(file, true);
+            scanner.clear();
+
+            phatTiengBeep();
+            setMaQuet(decodedText);
+            xuLyTraCuuMa(decodedText);
+        } catch (err) {
+            setLoi("Không nhận diện được mã vạch hoặc mã QR trong ảnh. Vui lòng chụp rõ nét hơn hoặc dùng máy quét.");
+            setThongBao("");
+            setDangTimKiem(false);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
     };
 
     useEffect(() => {
@@ -144,8 +256,36 @@ export default function WebQuetMaAdminPage() {
                 }
             }
 
-            // 3. Thử tra cứu Thẻ thư viện hoặc Mã độc giả (THE0001, DG001)
-            let resDocGia = await fetch(`${API_CONFIG.BASE_URL}/docGia?tuKhoa=${encodeURIComponent(ma)}`);
+            // 3. Thử tra cứu Thẻ thư viện theo số thẻ (THE0001, THE-DG871337...)
+            try {
+                let resThe = await fetch(`${API_CONFIG.BASE_URL}/theThuVien/soThe/${encodeURIComponent(ma)}`);
+                if (resThe.ok) {
+                    const the = await resThe.json();
+                    if (the && the.docGiaId) {
+                        let dg = null;
+                        let dsPhieu = [];
+                        try {
+                            const rDg = await fetch(`${API_CONFIG.BASE_URL}/docGia/${the.docGiaId}`);
+                            if (rDg.ok) dg = await rDg.json();
+                        } catch {}
+                        try {
+                            const rPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${the.docGiaId}`);
+                            if (rPhieu.ok) dsPhieu = await rPhieu.json();
+                        } catch {}
+
+                        if (dg) {
+                            setKetQuaThe({ docGia: dg, theThuVien: the, phieuMuon: dsPhieu });
+                            setThongBao(`Đã tìm thấy thẻ thư viện [${the.soThe}] của độc giả [${dg.hoTen}]!`);
+                            setDangTimKiem(false);
+                            return;
+                        }
+                    }
+                }
+            } catch {}
+
+            // 4. Thử tra cứu Thẻ thư viện hoặc Mã độc giả (THE0001, DG001, DG871337...)
+            const maDocGiaClean = ma.toUpperCase().startsWith("THE-") ? ma.substring(4) : ma;
+            let resDocGia = await fetch(`${API_CONFIG.BASE_URL}/docGia?tuKhoa=${encodeURIComponent(maDocGiaClean)}`);
             if (resDocGia.ok) {
                 const dsDg = await resDocGia.json();
                 const dg = Array.isArray(dsDg) && dsDg.length > 0 ? dsDg[0] : null;
@@ -163,7 +303,7 @@ export default function WebQuetMaAdminPage() {
                     } catch {}
 
                     setKetQuaThe({ docGia: dg, theThuVien: the, phieuMuon: dsPhieu });
-                    setThongBao(`Đã tìm thấy độc giả [${dg.hoTen}]!`);
+                    setThongBao(`Đã tìm thấy độc giả [${dg.hoTen}] (Mã: ${dg.maDocGia})!`);
                     setDangTimKiem(false);
                     return;
                 }
@@ -189,6 +329,18 @@ export default function WebQuetMaAdminPage() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto min-h-[85vh]">
+            {/* Vùng ẩn phục vụ giải mã file ảnh */}
+            <div id="reader-file-temp" style={{ display: "none" }} />
+
+            {/* Input file ẩn phục vụ tải ảnh */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={quetTuFileAnh}
+                className="hidden"
+            />
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
@@ -197,40 +349,79 @@ export default function WebQuetMaAdminPage() {
                         <span>Web Quét Mã Vạch & QR Thư Viện</span>
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        Sử dụng Camera trực tiếp trên Web hoặc máy quét mã vạch USB để tra cứu mượn - trả sách siêu tốc
+                        Sử dụng Camera trực tiếp, tải ảnh mã hoặc máy quét USB để tra cứu mượn - trả sách siêu tốc
                     </p>
                 </div>
 
-                <button
-                    onClick={dangQuetCamera ? tatCamera : batCamera}
-                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${
-                        dangQuetCamera
-                            ? "bg-red-600 hover:bg-red-700 text-white"
-                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                    }`}
-                >
-                    <FiCamera size={18} />
-                    {dangQuetCamera ? "Tắt Camera" : "Mở Camera Web"}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-bold text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+                        title="Tải ảnh mã vạch hoặc mã QR từ máy tính"
+                    >
+                        <FiUpload size={16} />
+                        <span>Tải ảnh quét</span>
+                    </button>
+
+                    <button
+                        onClick={dangQuetCamera ? tatCamera : () => batCamera()}
+                        disabled={dangTaiThuVien}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${
+                            dangQuetCamera
+                                ? "bg-red-600 hover:bg-red-700 text-white"
+                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        } disabled:opacity-50`}
+                    >
+                        <FiCamera size={18} />
+                        {dangTaiThuVien ? "Đang bật..." : dangQuetCamera ? "Tắt Camera" : "Mở Camera Quét"}
+                    </button>
+                </div>
             </div>
 
-            {/* Khung Camera Web */}
+            {/* Khung Camera Web Quét Mã Vạch / QR */}
             {dangQuetCamera && (
-                <div className="mb-6 bg-black rounded-2xl p-4 overflow-hidden relative max-w-md mx-auto shadow-xl">
-                    <p className="text-white text-xs text-center mb-2 font-medium">
-                        Hướng Camera về phía mã vạch hoặc mã QR trên sách / thẻ thư viện
-                    </p>
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border-2 border-emerald-500">
-                        <video ref={videoRef} playsInline className="w-full h-full object-cover" />
-                        {/* Tia quét laser đỏ */}
-                        <div className="absolute inset-x-0 top-1/2 h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" />
+                <div className="mb-6 bg-slate-900 rounded-2xl p-4 overflow-hidden relative max-w-md mx-auto shadow-2xl border border-slate-700">
+                    <div className="flex items-center justify-between text-white text-xs mb-3 pb-2 border-b border-slate-800">
+                        <span className="flex items-center gap-2 font-semibold text-emerald-400">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                            Camera đang quét tự động...
+                        </span>
+
+                        {danhSachCamera.length > 1 && (
+                            <select
+                                value={cameraIdDuocChon}
+                                onChange={(e) => doiCamera(e.target.value)}
+                                className="bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            >
+                                {danhSachCamera.map((cam, idx) => (
+                                    <option key={cam.id} value={cam.id}>
+                                        {cam.label || `Camera ${idx + 1}`}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="rounded-xl overflow-hidden bg-black border-2 border-emerald-500/80 shadow-inner">
+                        <div id="reader-barcode-scanner" className="w-full" />
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-slate-400 text-xs">
+                        <span>Hỗ trợ: Barcode (Code128, EAN) & QR Code</span>
+                        <button
+                            onClick={tatCamera}
+                            className="text-red-400 hover:text-red-300 font-semibold"
+                        >
+                            Đóng Camera
+                        </button>
                     </div>
                 </div>
             )}
 
             {loiCamera && (
-                <div className="mb-4 p-3 rounded-xl bg-amber-50 text-amber-800 text-xs border border-amber-200">
-                    {loiCamera}
+                <div className="mb-4 p-3.5 rounded-xl bg-amber-50 text-amber-900 text-xs border border-amber-200 flex items-center gap-2">
+                    <FiAlertCircle className="shrink-0 text-base text-amber-600" />
+                    <span>{loiCamera}</span>
                 </div>
             )}
 

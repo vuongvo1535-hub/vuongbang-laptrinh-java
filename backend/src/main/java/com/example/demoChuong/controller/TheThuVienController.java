@@ -35,6 +35,11 @@ public class TheThuVienController {
         return ResponseEntity.ok(service.layTheoDocGiaId(docGiaId));
     }
 
+    @GetMapping("/soThe/{soThe}")
+    public ResponseEntity<TheThuVienDTO> xemTheoSoThe(@PathVariable String soThe) {
+        return ResponseEntity.ok(service.layTheoSoThe(soThe));
+    }
+
     @PostMapping
     public ResponseEntity<TheThuVienDTO> capThe(@RequestBody TheThuVienDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.capThe(dto));

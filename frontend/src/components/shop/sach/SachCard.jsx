@@ -4,7 +4,8 @@ import { trangThaiSach } from "@/utils/trangThai";
 
 export default function BookCard({ sach }) {
   const tenSach = sach.tenSach || sach.ten_sach || "Sách";
-  const anhBia = sach.anhBia || sach.anh_bia;
+  const maSach = sach.maSach || sach.ma_sach;
+  const anhBia = sach.anhBia || sach.anh_bia || sach.duong_dan_anh || (maSach ? `${maSach}.jpg` : null);
   const namXuatBan = sach.namXuatBan || sach.nam_xuat_ban;
   const ngonNgu = sach.ngonNgu || sach.ngon_ngu;
   const trangThaiVal = sach.trangThai || sach.trang_thai;
