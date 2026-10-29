@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FiDollarSign, FiCheck, FiRefreshCw, FiExternalLink, FiX, FiMail } from "react-icons/fi";
+import { FiDollarSign, FiCheck, FiRefreshCw, FiExternalLink, FiX, FiMail, FiEdit2 } from "react-icons/fi";
 import API_CONFIG from "@/config/api";
 
 export default function TienPhatAdminPage() {
@@ -14,6 +14,12 @@ export default function TienPhatAdminPage() {
     const [maGiaoDichGia, setMaGiaoDichGia] = useState("");
     const [emailNhanThongBao, setEmailNhanThongBao] = useState("");
     const [dangXacNhan, setDangXacNhan] = useState(false);
+
+    // Modal chỉnh sửa số tiền phạt
+    const [khoanPhatDangSua, setKhoanPhatDangSua] = useState(null);
+    const [soTienMoi, setSoTienMoi] = useState("");
+    const [ghiChuSua, setGhiChuSua] = useState("");
+    const [dangLuuSua, setDangLuuSua] = useState(false);
 
     const sinhMaGia = () => "MOMO_ADMIN_" + Math.floor(100000000 + Math.random() * 900000000);
 
@@ -56,6 +62,40 @@ export default function TienPhatAdminPage() {
         }
     };
 
+    const batDauSua = (row) => {
+        setKhoanPhatDangSua(row);
+        setSoTienMoi(row.soTien || 0);
+        setGhiChuSua(row.ghiChu || "");
+    };
+
+    const luuSoTienMoi = async (e) => {
+        e.preventDefault();
+        if (!khoanPhatDangSua) return;
+        const tien = Number(soTienMoi);
+        if (isNaN(tien) || tien < 0) {
+            alert("Vui lòng nhập số tiền phạt hợp lệ (>= 0)");
+            return;
+        }
+        setDangLuuSua(true);
+        try {
+            const res = await fetch(
+                `${API_CONFIG.BASE_URL}/tienPhat/${khoanPhatDangSua.id}/soTien?soTien=${tien}&ghiChu=${encodeURIComponent(ghiChuSua)}`,
+                { method: "PUT" }
+            );
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Không thể cập nhật số tiền");
+            }
+            alert(`Đã cập nhật số tiền phạt thành ${tien.toLocaleString("vi-VN")} ₫ thành công!`);
+            setKhoanPhatDangSua(null);
+            taiDanhSach();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        } finally {
+            setDangLuuSua(false);
+        }
+    };
+
     const moMaMoMo = async (id = 0) => {
         try {
             const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${id}`);
@@ -91,7 +131,7 @@ export default function TienPhatAdminPage() {
         setDangXacNhan(true);
         try {
             const emailParam = encodeURIComponent(emailNhanThongBao || "");
-            const targetId = (id && id !== 0 && String(id) !== "0") ? id : 1;
+            const targetId = (id && id !== 0 && String(id) !== "0") ? id : 0;
             const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGiaoDichGia)}&emailNhan=${emailParam}`, {
                 method: "POST",
             });
@@ -194,8 +234,21 @@ export default function TienPhatAdminPage() {
                                         </span>
                                         {row.ghiChu && <p className="text-xs text-gray-400">{row.ghiChu}</p>}
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-red-600">
-                                        {dinhDangGia(row.soTien)}
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-red-600">{dinhDangGia(row.soTien)}</span>
+                                            {row.trangThai === "CHUA_THANH_TOAN" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => batDauSua(row)}
+                                                    title="Chỉnh sửa số tiền phạt"
+                                                    className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition font-medium"
+                                                >
+                                                    <FiEdit2 size={11} />
+                                                    <span>Sửa</span>
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500">
                                         {row.ngayLap ? new Date(row.ngayLap).toLocaleDateString("vi-VN") : "-"}
@@ -338,6 +391,97 @@ export default function TienPhatAdminPage() {
                                 Xác nhận đã thu tiền tại quầy
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Chỉnh Sửa Số Tiền Phạt */}
+            {khoanPhatDangSua && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b">
+                            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                                <FiEdit2 className="text-orange-600" />
+                                <span>Chỉnh sửa số tiền phạt #{khoanPhatDangSua.id}</span>
+                            </h3>
+                            <button
+                                onClick={() => setKhoanPhatDangSua(null)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={luuSoTienMoi} className="space-y-4 text-sm">
+                            <div>
+                                <span className="text-xs text-gray-500 block">Lý do phạt:</span>
+                                <span className="font-semibold text-gray-800">
+                                    {khoanPhatDangSua.lyDo === "QUA_HAN" ? "Trả trễ hạn" :
+                                     khoanPhatDangSua.lyDo === "HU_HONG" ? "Làm hư hại sách" :
+                                     khoanPhatDangSua.lyDo === "LAM_MAT" ? "Làm mất sách" : khoanPhatDangSua.lyDo}
+                                </span>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-bold mb-1">
+                                    Số tiền phạt mới (VNĐ) *
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="5000"
+                                        value={soTienMoi}
+                                        onChange={(e) => setSoTienMoi(e.target.value)}
+                                        required
+                                        className="w-full rounded-lg border border-orange-300 p-2.5 font-bold text-red-600 text-base focus:outline-none focus:ring-2 focus:ring-orange-500 pr-12"
+                                    />
+                                    <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">VNĐ</span>
+                                </div>
+                                {/* Nút chọn nhanh */}
+                                <div className="flex flex-wrap gap-1.5 pt-2">
+                                    <span className="text-[11px] text-gray-500 self-center">Chọn nhanh:</span>
+                                    {[10000, 20000, 30000, 50000, 70000, 100000, 150000].map((muc) => (
+                                        <button
+                                            key={muc}
+                                            type="button"
+                                            onClick={() => setSoTienMoi(muc)}
+                                            className="text-[11px] px-2 py-0.5 rounded border border-gray-300 bg-gray-50 hover:bg-orange-50 hover:border-orange-300 transition"
+                                        >
+                                            {muc.toLocaleString("vi-VN")}đ
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-1">Ghi chú điều chỉnh</label>
+                                <input
+                                    type="text"
+                                    value={ghiChuSua}
+                                    onChange={(e) => setGhiChuSua(e.target.value)}
+                                    placeholder="Lý do điều chỉnh số tiền..."
+                                    className="w-full rounded-lg border border-gray-300 p-2.5 focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-3 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => setKhoanPhatDangSua(null)}
+                                    className="rounded-lg px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={dangLuuSua}
+                                    className="rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 transition"
+                                >
+                                    {dangLuuSua ? "Đang lưu..." : "Lưu thay đổi"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

@@ -19,8 +19,10 @@ public class TienPhatController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TienPhatDTO>> xemTatCa(@RequestParam(required = false) String trangThai) {
-        return ResponseEntity.ok(service.layTatCa(trangThai));
+    public ResponseEntity<List<TienPhatDTO>> xemTatCa(
+            @RequestParam(required = false) Long docGiaId,
+            @RequestParam(required = false) String trangThai) {
+        return ResponseEntity.ok(service.layTatCa(docGiaId, trangThai));
     }
 
     @GetMapping("/{id}")
@@ -32,5 +34,14 @@ public class TienPhatController {
     @PostMapping("/{id}/thanhToan")
     public ResponseEntity<TienPhatDTO> thanhToan(@PathVariable Long id, @RequestParam(defaultValue = "TIEN_MAT") String phuongThuc) {
         return ResponseEntity.ok(service.thanhToan(id, phuongThuc));
+    }
+
+    /** Tự chỉnh số tiền phạt khi làm hư hỏng hoặc mất sách */
+    @PutMapping("/{id}/soTien")
+    public ResponseEntity<TienPhatDTO> capNhatSoTien(
+            @PathVariable Long id,
+            @RequestParam java.math.BigDecimal soTien,
+            @RequestParam(required = false) String ghiChu) {
+        return ResponseEntity.ok(service.capNhatSoTien(id, soTien, ghiChu));
     }
 }

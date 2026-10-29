@@ -9,14 +9,14 @@ import { dinhDangTien } from "@/utils/format";
 
 function MoMoPaymentContent() {
     const searchParams = useSearchParams();
-    const tienPhatIdParam = searchParams.get("tienPhatId") || "1";
+    const tienPhatIdParam = searchParams.get("tienPhatId") || "0";
     const soTienParam = searchParams.get("soTien") || "25000";
 
     const [tienPhatId, setTienPhatId] = useState(tienPhatIdParam);
     const [soTien, setSoTien] = useState(Number(soTienParam) || 25000);
-    const [emailNhan, setEmailNhan] = useState("vuongvo1535@gmail.com");
+    const [emailNhan, setEmailNhan] = useState("");
     const [maGiaoDich, setMaGiaoDich] = useState("");
-    const [noiDung, setNoiDung] = useState("NOP_PHAT_DEMO");
+    const [noiDung, setNoiDung] = useState(tienPhatIdParam && tienPhatIdParam !== "0" ? `NOP_PHAT_${tienPhatIdParam}` : "NOP_PHAT_DEMO");
 
     // Trạng thái đếm ngược 10 phút
     const [giayConLai, setGiayConLai] = useState(600);
@@ -45,7 +45,11 @@ function MoMoPaymentContent() {
         } catch {}
 
         if (tienPhatIdParam && tienPhatIdParam !== "0") {
+            setTienPhatId(tienPhatIdParam);
             setNoiDung(`NOP_PHAT_${tienPhatIdParam}`);
+        } else {
+            setTienPhatId("0");
+            setNoiDung("NOP_PHAT_DEMO");
         }
     }, [tienPhatIdParam]);
 
@@ -84,7 +88,7 @@ function MoMoPaymentContent() {
             await new Promise((r) => setTimeout(r, 600));
             setBuocXuLy(`3. Đang cập nhật dữ liệu & gửi thông báo về Gmail: ${emailNhan}...`);
 
-            const targetId = (tienPhatId && tienPhatId !== "0") ? tienPhatId : "1";
+            const targetId = (tienPhatId && tienPhatId !== "0") ? tienPhatId : "0";
             const url = `${API_CONFIG.BASE_URL}/payment/momo/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGiaoDich)}&emailNhan=${encodeURIComponent(emailNhan)}`;
             const res = await fetch(url, { method: "POST" });
             const data = await res.json().catch(() => ({}));

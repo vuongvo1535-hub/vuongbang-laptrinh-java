@@ -31,6 +31,7 @@ export default function ChiTietPhieuMuonPage() {
     const [moFormTra, setMoFormTra] = useState(false);
     const [chonChiTietId, setChonChiTietId] = useState("");
     const [tinhTrangTra, setTinhTrangTra] = useState("TOT");
+    const [soTienPhat, setSoTienPhat] = useState(50000);
     const [ghiChuTra, setGhiChuTra] = useState("");
 
     useEffect(() => {
@@ -56,18 +57,23 @@ export default function ChiTietPhieuMuonPage() {
         e.preventDefault();
         if (!chonChiTietId) { alert("Vui lòng chọn cuốn sách cần trả"); return; }
         try {
+            const body = {
+                chiTietPhieuMuonId: Number(chonChiTietId),
+                tinhTrangLucTra: tinhTrangTra,
+                ghiChu: ghiChuTra,
+            };
+            if (tinhTrangTra === "HU_HONG" || tinhTrangTra === "MAT") {
+                body.soTienPhat = Number(soTienPhat) >= 0 ? Number(soTienPhat) : 0;
+            }
+
             const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/tra`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chiTietPhieuMuonId: Number(chonChiTietId),
-                    tinhTrangLucTra: tinhTrangTra,
-                    ghiChu: ghiChuTra,
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Trả sách thất bại");
-            alert(`Trả sách thành công! ${tinhTrangTra !== "TOT" ? "Đã tạo phiếu phạt tự động." : ""}`);
+            alert(`Trả sách thành công! ${tinhTrangTra === "HU_HONG" ? `Đã tạo phiếu phạt làm hư sách: ${Number(soTienPhat || 0).toLocaleString("vi-VN")} ₫.` : tinhTrangTra === "MAT" ? `Đã tạo phiếu phạt làm mất sách: ${Number(soTienPhat || 0).toLocaleString("vi-VN")} ₫.` : ""}`);
             setMoFormTra(false);
             // Tải lại chi tiết
             const r2 = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/chiTiet`);
@@ -214,20 +220,68 @@ export default function ChiTietPhieuMuonPage() {
                                 <label className="block text-gray-700 font-medium mb-1">Tình trạng sách lúc trả *</label>
                                 <select
                                     value={tinhTrangTra}
-                                    onChange={(e) => setTinhTrangTra(e.target.value)}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setTinhTrangTra(val);
+                                        if (val === "HU_HONG") setSoTienPhat(50000);
+                                        else if (val === "MAT") setSoTienPhat(100000);
+                                    }}
                                     className="w-full rounded-lg border border-gray-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 >
                                     <option value="TOT">Tốt – Không hư hỏng</option>
                                     <option value="CU">Cũ – Còn dùng được</option>
-                                    <option value="HU_HONG">Hư hỏng – Tạo phiếu phạt 50.000đ</option>
-                                    <option value="MAT">Làm mất – Tạo phiếu phạt 100.000đ</option>
+                                    <option value="HU_HONG">Hư hỏng sách (Tùy chỉnh số tiền phạt)</option>
+                                    <option value="MAT">Làm mất sách (Tùy chỉnh số tiền phạt)</option>
                                 </select>
-                                {(tinhTrangTra === "HU_HONG" || tinhTrangTra === "MAT") && (
-                                    <p className="mt-1 text-xs text-red-500">
-                                        ⚠ Hệ thống sẽ tự động tạo phiếu phạt khi xác nhận.
-                                    </p>
-                                )}
                             </div>
+
+                            {/* Ô TỰ CHỈNH SỐ TIỀN PHẠT KHI HƯ HỎNG HOẶC MẤT SÁCH */}
+                            {(tinhTrangTra === "HU_HONG" || tinhTrangTra === "MAT") && (
+                                <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-xl space-y-2.5">
+                                    <div className="flex justify-between items-center">
+                                        <label className="block text-orange-950 font-bold text-xs uppercase tracking-wide">
+                                            {tinhTrangTra === "HU_HONG" ? "🔧 Tiền phạt làm hư sách (VNĐ) *" : "❌ Tiền bồi thường mất sách (VNĐ) *"}
+                                        </label>
+                                        <span className="text-[11px] text-orange-700 italic">Thủ thư tự chỉnh</span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="5000"
+                                            value={soTienPhat}
+                                            onChange={(e) => setSoTienPhat(e.target.value)}
+                                            required
+                                            className="w-full rounded-lg border border-orange-300 bg-white px-3 py-2 font-bold text-red-600 text-base focus:outline-none focus:ring-2 focus:ring-orange-500 pr-12"
+                                            placeholder="Nhập số tiền phạt..."
+                                        />
+                                        <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">VNĐ</span>
+                                    </div>
+
+                                    {/* Các nút chọn mức phạt nhanh */}
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                        <span className="text-[11px] text-gray-500">Mức gợi ý:</span>
+                                        {[20000, 30000, 50000, 70000, 100000, 150000, 200000].map((muc) => (
+                                            <button
+                                                key={muc}
+                                                type="button"
+                                                onClick={() => setSoTienPhat(muc)}
+                                                className={`text-[11px] px-2 py-0.5 rounded border transition ${
+                                                    Number(soTienPhat) === muc
+                                                        ? "bg-orange-600 text-white border-orange-600 font-bold"
+                                                        : "bg-white text-gray-700 border-gray-300 hover:bg-orange-100"
+                                                }`}
+                                            >
+                                                {muc.toLocaleString("vi-VN")}đ
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <p className="text-[11px] text-orange-800">
+                                        ⚠ Sẽ tạo phiếu phạt <b>{Number(soTienPhat || 0).toLocaleString("vi-VN")} ₫</b> vào tài khoản độc giả để thanh toán tiền mặt hoặc quét MoMo.
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-gray-700 font-medium mb-1">Ghi chú</label>
                                 <input

@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FiBookOpen, FiUser, FiLogOut, FiShoppingCart, FiSearch, FiDollarSign } from "react-icons/fi";
+import { FiBookOpen, FiUser, FiLogOut, FiShoppingCart, FiSearch, FiDollarSign, FiCamera } from "react-icons/fi";
 import useGioMuon from "@/hooks/useGioMuon";
+import BarcodeScannerModal from "./BarcodeScannerModal";
 
 export default function Header() {
     const router = useRouter();
     const [q, setQ] = useState("");
     const [moMenu, setMoMenu] = useState(false);
     const [user, setUser] = useState(null);
+    const [moQuetMa, setMoQuetMa] = useState(false);
+    const [maQuetBanDau, setMaQuetBanDau] = useState("");
     const { soLuong } = useGioMuon();
 
     const taiThongTinUser = () => {
@@ -35,6 +38,7 @@ export default function Header() {
     const dangXuat = () => {
         if (confirm("Bạn có muốn đăng xuất?")) {
             localStorage.removeItem("user");
+            window.dispatchEvent(new Event("user-auth-changed"));
             setUser(null);
             router.push("/");
         }
@@ -42,7 +46,17 @@ export default function Header() {
 
     const timKiem = (e) => {
         e.preventDefault();
-        router.push(q.trim() ? `/sach?q=${encodeURIComponent(q.trim())}` : "/sach");
+        const str = q.trim();
+        if (!str) return;
+
+        // Nếu người dùng nhập hoặc quét mã thẻ / mã sách
+        if (str.toUpperCase().startsWith("THE-") || str.toUpperCase().startsWith("THE") || str.toUpperCase().startsWith("DG") || str.toUpperCase().startsWith("BS-")) {
+            setMaQuetBanDau(str);
+            setMoQuetMa(true);
+            return;
+        }
+
+        router.push(`/sach?q=${encodeURIComponent(str)}`);
     };
 
     return (
@@ -67,16 +81,29 @@ export default function Header() {
                 </nav>
 
                 {/* Ô tìm kiếm */}
-                <form onSubmit={timKiem} className="hidden md:flex flex-1 max-w-xs relative">
+                <form onSubmit={timKiem} className="hidden md:flex flex-1 max-w-xs relative items-center">
                     <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Tìm tên sách, tác giả..."
-                        className="w-full border border-gray-300 rounded-lg pl-3 pr-9 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="Tìm sách, thẻ độc giả..."
+                        className="w-full border border-gray-300 rounded-lg pl-3 pr-16 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <button type="submit" className="absolute right-2 top-2 text-gray-400 hover:text-emerald-600">
-                        <FiSearch size={16} />
-                    </button>
+                    <div className="absolute right-2 flex items-center gap-1.5 text-gray-400">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setMaQuetBanDau(q.trim());
+                                setMoQuetMa(true);
+                            }}
+                            title="Quét mã vạch / QR bằng Camera"
+                            className="hover:text-emerald-600 transition p-0.5"
+                        >
+                            <FiCamera size={16} />
+                        </button>
+                        <button type="submit" title="Tìm kiếm" className="hover:text-emerald-600 transition p-0.5">
+                            <FiSearch size={16} />
+                        </button>
+                    </div>
                 </form>
 
                 {/* Giỏ mượn & Auth */}
@@ -172,11 +199,31 @@ export default function Header() {
                     <Link href="/giomuon" onClick={() => setMoMenu(false)} className="font-semibold text-emerald-700">
                         Giỏ mượn sách ({soLuong})
                     </Link>
+                    <button
+                        onClick={() => {
+                            setMoMenu(false);
+                            setMoQuetMa(true);
+                        }}
+                        className="text-left font-semibold text-emerald-700 flex items-center gap-1.5"
+                    >
+                        <FiCamera size={16} />
+                        <span>Quét mã vạch & QR Camera</span>
+                    </button>
                     <Link href="/admin" onClick={() => setMoMenu(false)} className="font-semibold text-gray-500">
                         Trang Quản trị Admin
                     </Link>
                 </div>
             )}
+
+            {/* Modal Quét Mã Vạch & QR */}
+            <BarcodeScannerModal
+                mo={moQuetMa}
+                dong={() => {
+                    setMoQuetMa(false);
+                    setMaQuetBanDau("");
+                }}
+                maBanDau={maQuetBanDau}
+            />
         </header>
     );
 }
