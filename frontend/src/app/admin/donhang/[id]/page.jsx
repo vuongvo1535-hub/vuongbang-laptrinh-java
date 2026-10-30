@@ -42,7 +42,17 @@ export default function ChiTietPhieuMuonPage() {
                     fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/chiTiet`),
                 ]);
                 if (!r1.ok) throw new Error("Không tìm thấy phiếu mượn");
-                setPhieu(await r1.json());
+                const pData = await r1.json();
+                try {
+                    if (pData.docGiaId) {
+                        const rDg = await fetch(`${API_CONFIG.BASE_URL}/docGia/${pData.docGiaId}`);
+                        if (rDg.ok) {
+                            const dg = await rDg.json();
+                            pData.tenDocGia = dg.hoTen || pData.tenDocGia;
+                        }
+                    }
+                } catch {}
+                setPhieu(pData);
                 if (r2.ok) setChiTiet(await r2.json());
             } catch (err) {
                 setLoi(err.message);
@@ -117,8 +127,10 @@ export default function ChiTietPhieuMuonPage() {
                         <p className="font-bold text-emerald-700">{phieu.maPhieu || "-"}</p>
                     </div>
                     <div>
-                        <p className="text-gray-400">Độc giả</p>
-                        <p className="font-semibold">#{phieu.docGiaId}</p>
+                        <p className="text-gray-400">Người mượn</p>
+                        <p className="font-bold text-gray-900">
+                            {phieu.tenDocGia ? `${phieu.tenDocGia} (#${phieu.docGiaId})` : `Độc giả #${phieu.docGiaId}`}
+                        </p>
                     </div>
                     <div>
                         <p className="text-gray-400">Ngày mượn</p>

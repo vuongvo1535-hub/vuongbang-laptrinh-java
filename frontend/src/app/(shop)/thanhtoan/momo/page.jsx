@@ -61,14 +61,40 @@ function MoMoPaymentContent() {
         return () => clearInterval(timer);
     }, []);
 
+    // Lắng nghe trạng thái từ Backend (Chỉ nhảy khi tiền thật đã vào ví và backend ghi nhận)
+    useEffect(() => {
+        if (ketQua || !tienPhatId || tienPhatId === "0") return;
+
+        const checkInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${tienPhatId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.trangThai === "DA_THANH_TOAN") {
+                        setKetQua({
+                            status: "SUCCESS",
+                            maGiaoDich: `MOMO_AUTO_${Date.now()}`,
+                            soTien: data.soTien || soTien,
+                            emailNhan,
+                            emailSent: true,
+                            emailStatus: "Đã nhận tiền chuyển khoản thành công từ tài khoản MoMo!",
+                        });
+                    }
+                }
+            } catch {}
+        }, 2500);
+
+        return () => clearInterval(checkInterval);
+    }, [ketQua, tienPhatId]);
+
     const dinhDangThoiGian = (totalSeconds) => {
         const m = Math.floor(totalSeconds / 60);
         const s = totalSeconds % 60;
         return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     };
 
-    // Đường dẫn QR động chuẩn VietQR / MoMo
-    const qrUrl = `https://img.vietqr.io/image/MB-0987654321-compact2.jpg?amount=${soTien}&addInfo=${noiDung}&accountName=THU%20VIEN%20SO`;
+    // Đường dẫn QR động chuẩn VietQR / MoMo (Số ví MoMo thật 0382450875)
+    const qrUrl = `https://img.vietqr.io/image/momo-0382450875-compact2.jpg?amount=${soTien}&addInfo=${noiDung}&accountName=THU%20VIEN%20SO`;
 
     // Hàm thực hiện giả lập thanh toán MoMo & kích hoạt gửi Gmail
     const thucHienThanhToanGiaLap = async () => {
@@ -313,30 +339,41 @@ function MoMoPaymentContent() {
                                 Quét mã QR bằng App MoMo hoặc Ngân Hàng
                             </span>
 
-                            {/* Khung ảnh QR VietQR MoMo */}
-                            <div className="relative p-3 bg-white rounded-2xl shadow-md border inline-block mb-3">
+                            {/* Khung ảnh QR VietQR MoMo - Sạch sẽ */}
+                            <div className="p-3 bg-white rounded-2xl shadow-md border border-gray-100 inline-block mb-3">
                                 <img
                                     src={qrUrl}
                                     alt="Mã QR MoMo"
-                                    className="w-52 h-52 object-contain rounded-lg"
+                                    className="w-52 h-52 object-contain rounded-xl"
                                 />
-                                {/* Laser quét màu đỏ hiệu ứng */}
-                                <div className="absolute inset-x-3 top-1/2 h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" />
                             </div>
 
                             <p className="text-[11px] text-gray-500 mb-4 max-w-xs">
                                 Hệ thống hỗ trợ chuẩn VietQR tự động điền số tiền <b className="text-red-600">{dinhDangTien(soTien)}</b> và nội dung <b className="text-emerald-700">{noiDung}</b>.
                             </p>
 
-                            {/* Nút giả lập hành động */}
+                            {/* Nút giả lập & Trạng thái tự động */}
                             <div className="w-full space-y-2">
+                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1.5 text-left">
+                                    <div className="flex items-center justify-between font-bold">
+                                        <span className="flex items-center gap-1.5 text-emerald-700">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                                            Đang tự động nhận diện MoMo...
+                                        </span>
+                                        <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded">Tự động</span>
+                                    </div>
+                                    <p className="text-[11px] text-emerald-800">
+                                        Hệ thống sẽ <b>tự động thông báo thành công</b> sau khi bạn chuyển tiền trên điện thoại mà không cần bấm chuột.
+                                    </p>
+                                </div>
+
                                 <button
                                     onClick={thucHienThanhToanGiaLap}
                                     disabled={dangXuLy}
-                                    className="w-full py-3.5 bg-gradient-to-r from-[#a50064] to-[#d82d8b] hover:from-[#8d0055] hover:to-[#be2478] text-white rounded-xl font-bold text-sm shadow-xl shadow-pink-600/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 text-white rounded-xl font-black text-xs shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    <FiCreditCard size={18} />
-                                    {dangXuLy ? "Đang xử lý giả lập..." : "⚡ BẤM ĐÂY ĐỂ THANH TOÁN & GỬI GMAIL"}
+                                    <FiCheckCircle size={16} />
+                                    {dangXuLy ? "Đang xử lý xác nhận..." : "Bấm xác nhận ngay nếu không muốn đợi"}
                                 </button>
 
                                 {dangXuLy && (
