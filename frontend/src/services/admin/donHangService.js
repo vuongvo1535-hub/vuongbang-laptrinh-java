@@ -12,7 +12,8 @@ function chuanHoaPhieuMuon(item) {
     return {
         ...item,
         ma_don_hang: item.maPhieu || ("PM-" + item.id),
-        ten_nguoi_nhan: `Độc giả #${item.docGiaId}`,
+        tenDocGia: item.tenDocGia || item.hoTen || null,
+        ten_nguoi_nhan: item.tenDocGia || item.hoTen || `Độc giả #${item.docGiaId}`,
         so_dien_thoai: "-",
         trang_thai: item.trangThai || "DANG_MUON",
         ngay_tao: item.ngayMuon,

@@ -28,9 +28,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final EmailService emailService;
 
     // Thông tin ví MoMo / Ngân hàng thư viện mặc định
-    private static final String SO_DIEN_THOAI_MOMO = "0987654321";
+    private static final String SO_DIEN_THOAI_MOMO = "0382450875";
     private static final String TEN_NGUOI_NHAN = "THU VIEN SO";
-    private static final String MA_NGAN_HANG = "MB"; // Ngân hàng MB Bank hỗ trợ MoMo chuyển khoản VietQR
+    private static final String MA_NGAN_HANG = "momo"; // Ví MoMo chuẩn Napas VietQR (mã BIN 971025)
 
     public PaymentServiceImpl(
             TienPhatRepository tienPhatRepository,

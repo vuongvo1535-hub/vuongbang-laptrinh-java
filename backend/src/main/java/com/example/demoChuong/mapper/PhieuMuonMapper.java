@@ -1,13 +1,27 @@
 package com.example.demoChuong.mapper;
 
 import com.example.demoChuong.dto.PhieuMuonDTO;
+import com.example.demoChuong.entity.DocGia;
 import com.example.demoChuong.entity.PhieuMuon;
+import com.example.demoChuong.repository.DocGiaRepository;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PhieuMuonMapper {
 
+    private final DocGiaRepository docGiaRepository;
+
+    public PhieuMuonMapper(DocGiaRepository docGiaRepository) {
+        this.docGiaRepository = docGiaRepository;
+    }
+
     public PhieuMuonDTO toDTO(PhieuMuon e) {
+        String tenDocGia = null;
+        if (e.getDocGiaId() != null) {
+            tenDocGia = docGiaRepository.findById(e.getDocGiaId())
+                    .map(DocGia::getHoTen)
+                    .orElse(null);
+        }
         return new PhieuMuonDTO(
                 e.getId(),
                 e.getMaPhieu(),
@@ -15,7 +29,8 @@ public class PhieuMuonMapper {
                 e.getNhanVienId(),
                 e.getNgayMuon(),
                 e.getGhiChu(),
-                e.getTrangThai()
+                e.getTrangThai(),
+                tenDocGia
         );
     }
 

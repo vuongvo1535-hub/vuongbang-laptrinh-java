@@ -9,5 +9,10 @@ public record PhieuMuonDTO(
         Long nhanVienId,
         LocalDateTime ngayMuon,
         String ghiChu,
-        String trangThai
-) {}
+        String trangThai,
+        String tenDocGia
+) {
+    public PhieuMuonDTO(Long id, String maPhieu, Long docGiaId, Long nhanVienId, LocalDateTime ngayMuon, String ghiChu, String trangThai) {
+        this(id, maPhieu, docGiaId, nhanVienId, ngayMuon, ghiChu, trangThai, null);
+    }
+}

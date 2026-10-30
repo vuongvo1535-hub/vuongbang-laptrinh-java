@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDonHangs, capNhatTrangThaiDonHang } from "@/services/admin/donHangService";
 import Pagination from "@/components/common/Pagination";
+import API_CONFIG from "@/config/api";
 
 // Hiển thị trạng thái phiếu mượn bằng màu sắc
 function NhanTrangThai({ trangThai }) {
@@ -24,6 +25,7 @@ function NhanTrangThai({ trangThai }) {
 
 export default function PhieuMuonAdminPage() {
     const [danhSach, setDanhSach] = useState([]);
+    const [mapDocGia, setMapDocGia] = useState({});
     const [tuKhoa, setTuKhoa] = useState("");
     const [locTrangThai, setLocTrangThai] = useState("");
     const [trang, setTrang] = useState(1);
@@ -31,6 +33,24 @@ export default function PhieuMuonAdminPage() {
     const [dangTai, setDangTai] = useState(true);
     const [loi, setLoi] = useState("");
     const router = useRouter();
+
+    // Tải danh sách tên độc giả để map id -> họ tên
+    useEffect(() => {
+        async function taiDocGia() {
+            try {
+                const res = await fetch(`${API_CONFIG.BASE_URL}/docGia`);
+                if (res.ok) {
+                    const list = await res.json();
+                    const m = {};
+                    (Array.isArray(list) ? list : []).forEach((d) => {
+                        m[d.id] = d.hoTen || d.maDocGia;
+                    });
+                    setMapDocGia(m);
+                }
+            } catch {}
+        }
+        taiDocGia();
+    }, []);
 
     const taiDanhSach = async (trangHienTai = 1) => {
         setDangTai(true);
@@ -141,7 +161,7 @@ export default function PhieuMuonAdminPage() {
                         <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b">
                             <tr>
                                 <th className="px-5 py-4">Mã phiếu</th>
-                                <th className="px-5 py-4">ID Độc giả</th>
+                                <th className="px-5 py-4">Người mượn</th>
                                 <th className="px-5 py-4">Ngày mượn</th>
                                 <th className="px-5 py-4">Ghi chú</th>
                                 <th className="px-5 py-4">Trạng thái</th>
@@ -154,8 +174,13 @@ export default function PhieuMuonAdminPage() {
                                     <td className="px-5 py-4 font-semibold text-emerald-700">
                                         {row.maPhieu || row.ma_don_hang || `PM-${row.id}`}
                                     </td>
-                                    <td className="px-5 py-4 text-gray-700">
-                                        Độc giả #{row.docGiaId}
+                                    <td className="px-5 py-4">
+                                        <div className="font-bold text-gray-900 text-sm">
+                                            {row.tenDocGia || mapDocGia[row.docGiaId] || row.ten_nguoi_nhan || `Độc giả #${row.docGiaId}`}
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                            Mã độc giả: #{row.docGiaId}
+                                        </div>
                                     </td>
                                     <td className="px-5 py-4 text-gray-500">
                                         {formatNgay(row.ngayMuon || row.ngay_tao)}
