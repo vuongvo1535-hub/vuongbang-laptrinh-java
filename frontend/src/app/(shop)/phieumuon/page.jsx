@@ -29,6 +29,7 @@ export default function PhieuMuonUserPage() {
     const [user, setUser] = useState(null);
     const [dsPhieu, setDsPhieu] = useState([]);
     const [dsPhat, setDsPhat] = useState([]);
+    const [dsDatTruoc, setDsDatTruoc] = useState([]);
     const [dangTai, setDangTai] = useState(true);
 
     // Khoản phạt đang chọn ở bảng bên phải
@@ -52,6 +53,28 @@ export default function PhieuMuonUserPage() {
     const [emailNhanThongBao, setEmailNhanThongBao] = useState("");
     const [dangQuetQrModal, setDangQuetQrModal] = useState(false);
     const [tienTrinhModal, setTienTrinhModal] = useState(0);
+    const [dangGiaHanId, setDangGiaHanId] = useState(null);
+
+    const giaHanPhieu = async (phieuId) => {
+        if (!window.confirm("Bạn có muốn gia hạn thêm 7 ngày cho các cuốn sách trong phiếu mượn này không?")) return;
+        setDangGiaHanId(phieuId);
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${phieuId}/giaHan`, {
+                method: "POST"
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setThongBao(`🎉 Gia hạn phiếu #${phieuId} thành công! Đã cộng thêm 7 ngày vào hạn trả.`);
+                if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
+            } else {
+                alert(data.message || "Không thể gia hạn phiếu mượn này.");
+            }
+        } catch (err) {
+            alert("Lỗi khi kết nối: " + err.message);
+        } finally {
+            setDangGiaHanId(null);
+        }
+    };
 
     const sinhMaGiaoDichGia = (prefix = "ZALOPAY") => {
         const rd = Math.floor(100000000 + Math.random() * 900000000);
@@ -92,12 +115,39 @@ export default function PhieuMuonUserPage() {
             } else {
                 setDsPhat([]);
             }
+
+            // 3. Tải danh sách đặt trước của độc giả
+            try {
+                const resDat = await fetch(`${API_CONFIG.BASE_URL}/datTruoc/docGia/${encodeURIComponent(docGiaId)}`);
+                if (resDat.ok) {
+                    const dataDat = await resDat.json();
+                    setDsDatTruoc(Array.isArray(dataDat) ? dataDat : []);
+                } else {
+                    setDsDatTruoc([]);
+                }
+            } catch {
+                setDsDatTruoc([]);
+            }
         } catch (err) {
             console.error("Lỗi tải dữ liệu:", err);
             setDsPhieu([]);
             setDsPhat([]);
+            setDsDatTruoc([]);
         } finally {
             setDangTai(false);
+        }
+    };
+
+    const huyDatTruoc = async (id) => {
+        if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu đặt trước cuốn sách này?")) return;
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/datTruoc/${id}`, { method: "DELETE" });
+            if (res.ok) {
+                setThongBao("Đã hủy đặt trước sách thành công!");
+                if (user) taiDuLieu(user.docGiaId || user.taiKhoanId || user.id);
+            }
+        } catch (err) {
+            alert("Lỗi khi hủy đặt trước: " + err.message);
         }
     };
 
@@ -892,47 +942,151 @@ export default function PhieuMuonUserPage() {
                                     <th className="px-5 py-3">Ngày mượn</th>
                                     <th className="px-5 py-3">Ghi chú</th>
                                     <th className="px-5 py-3">Trạng thái</th>
+                                    <th className="px-5 py-3 text-center">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {dsPhieu.map((p) => (
-                                    <tr key={p.id} className="hover:bg-gray-50">
-                                        <td className="px-5 py-4 font-mono font-bold text-emerald-800">
-                                            {p.maPhieu}
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <div className="font-bold text-gray-800 text-xs">
-                                                {p.tenDocGia || user?.hoTen || user?.tenDangNhap || `Độc giả #${p.docGiaId}`}
-                                            </div>
-                                            <div className="text-[11px] text-gray-400">
-                                                Mã thẻ: #{p.docGiaId || user?.docGiaId || user?.taiKhoanId || user?.id}
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-4 text-xs text-gray-600">
-                                            {p.ngayMuon ? new Date(p.ngayMuon).toLocaleString("vi-VN") : "-"}
-                                        </td>
-                                        <td className="px-5 py-4 text-xs text-gray-600">
-                                            {p.ghiChu || "Mượn sách thư viện"}
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <span
-                                                className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                                                    p.trangThai === "DA_TRA"
-                                                        ? "bg-green-100 text-green-700"
+                                {dsPhieu.map((p) => {
+                                    const coTheGiaHan = p.trangThai === "DANG_MUON";
+                                    return (
+                                        <tr key={p.id} className="hover:bg-gray-50">
+                                            <td className="px-5 py-4 font-mono font-bold text-emerald-800">
+                                                {p.maPhieu}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <div className="font-bold text-gray-800 text-xs">
+                                                    {p.tenDocGia || user?.hoTen || user?.tenDangNhap || `Độc giả #${p.docGiaId}`}
+                                                </div>
+                                                <div className="text-[11px] text-gray-400">
+                                                    Mã thẻ: #{p.docGiaId || user?.docGiaId || user?.taiKhoanId || user?.id}
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-4 text-xs text-gray-600">
+                                                {p.ngayMuon ? new Date(p.ngayMuon).toLocaleString("vi-VN") : "-"}
+                                            </td>
+                                            <td className="px-5 py-4 text-xs text-gray-600">
+                                                {p.ghiChu || "Mượn sách thư viện"}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <span
+                                                    className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                                                        p.trangThai === "DA_TRA"
+                                                            ? "bg-green-100 text-green-700"
+                                                            : p.trangThai === "QUA_HAN"
+                                                            ? "bg-red-100 text-red-700"
+                                                            : "bg-blue-100 text-blue-700"
+                                                    }`}
+                                                >
+                                                    {p.trangThai === "DA_TRA"
+                                                        ? "Đã trả xong"
                                                         : p.trangThai === "QUA_HAN"
-                                                        ? "bg-red-100 text-red-700"
-                                                        : "bg-blue-100 text-blue-700"
-                                                }`}
-                                            >
-                                                {p.trangThai === "DA_TRA"
-                                                    ? "Đã trả xong"
-                                                    : p.trangThai === "QUA_HAN"
-                                                    ? "Quá hạn"
-                                                    : "Đang mượn"}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                        ? "Quá hạn"
+                                                        : "Đang mượn"}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-center">
+                                                {coTheGiaHan ? (
+                                                    <button
+                                                        onClick={() => giaHanPhieu(p.id)}
+                                                        disabled={dangGiaHanId === p.id}
+                                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1 mx-auto"
+                                                        title="Gia hạn thêm 7 ngày vào hạn trả sách"
+                                                    >
+                                                        <span>🔄</span>
+                                                        <span>{dangGiaHanId === p.id ? "Đang xử lý..." : "Gia hạn +7 ngày"}</span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-400 text-xs">-</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* ============================================================== */}
+            {/* PHẦN 3: SÁCH ĐANG ĐẶT TRƯỚC (RESERVATION / HOLD) */}
+            {/* ============================================================== */}
+            <div className="mt-12">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <span>📌</span>
+                            <span>Sách bạn đang đặt trước (Hàng đợi giữ chỗ)</span>
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Khi có bạn đọc khác trả sách về thư viện, hệ thống sẽ tự động ưu tiên giữ sách cho bạn
+                        </p>
+                    </div>
+                    <Link
+                        href="/sach"
+                        className="text-xs font-semibold text-emerald-700 hover:underline"
+                    >
+                        + Khám phá thêm sách để đặt trước →
+                    </Link>
+                </div>
+
+                {dsDatTruoc.length === 0 ? (
+                    <div className="p-6 bg-white rounded-2xl border border-gray-100 text-center text-xs text-gray-500">
+                        Bạn hiện không có cuốn sách nào trong hàng đợi đặt trước. Nếu cuốn sách bạn yêu thích tạm hết trên kệ, hãy bấm <b>"📌 Đặt trước"</b> tại trang chi tiết cuốn sách đó!
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto rounded-2xl bg-white border border-gray-100 shadow-sm">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b">
+                                <tr>
+                                    <th className="px-5 py-3">Tên sách đặt trước</th>
+                                    <th className="px-5 py-3">Ngày đặt</th>
+                                    <th className="px-5 py-3">Trạng thái hàng đợi</th>
+                                    <th className="px-5 py-3">Ghi chú</th>
+                                    <th className="px-5 py-3 text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {dsDatTruoc.map((dt) => {
+                                    const daCoSach = dt.trangThai === "DA_CO_SACH";
+                                    const dangCho = dt.trangThai === "CHO_CO_SACH";
+                                    return (
+                                        <tr key={dt.id} className="hover:bg-gray-50">
+                                            <td className="px-5 py-4">
+                                                <div className="font-bold text-gray-900 text-sm">{dt.tenSach || `Sách #${dt.sachId}`}</div>
+                                                <div className="text-[11px] text-gray-400">Mã yêu cầu: #{dt.id}</div>
+                                            </td>
+                                            <td className="px-5 py-4 text-xs text-gray-600">
+                                                {dt.ngayDat ? new Date(dt.ngayDat).toLocaleString("vi-VN") : "-"}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                                                    daCoSach ? "bg-emerald-100 text-emerald-800 animate-pulse border border-emerald-300" :
+                                                    dangCho ? "bg-amber-100 text-amber-800" :
+                                                    dt.trangThai === "DA_NHAN" ? "bg-blue-100 text-blue-700" :
+                                                    "bg-gray-100 text-gray-600"
+                                                }`}>
+                                                    {daCoSach ? "🎉 Đã có sách về (Mời nhận)!" :
+                                                     dangCho ? "⏳ Đang chờ sách hoàn trả" :
+                                                     dt.trangThai === "DA_NHAN" ? "✓ Đã nhận sách" : "Đã hủy"}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-xs text-gray-500 max-w-xs truncate">
+                                                {dt.ghiChu || "-"}
+                                            </td>
+                                            <td className="px-5 py-4 text-center">
+                                                {(dangCho || daCoSach) && (
+                                                    <button
+                                                        onClick={() => huyDatTruoc(dt.id)}
+                                                        className="px-3 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition font-medium border border-red-200"
+                                                    >
+                                                        Hủy đặt
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

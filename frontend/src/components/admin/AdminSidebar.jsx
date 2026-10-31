@@ -12,6 +12,7 @@ import {
     FiDollarSign,
     FiCamera,
     FiExternalLink,
+    FiBookmark,
 } from "react-icons/fi";
 
 // Menu Quản lý Thư viện
@@ -22,6 +23,7 @@ const menu = [
     { name: "Danh mục sách", link: "/admin/danhmuc", icon: FiGrid },
     { name: "Tác giả", link: "/admin/tacgia", icon: FiUserCheck },
     { name: "Phiếu mượn - Trả", link: "/admin/donhang", icon: FiFileText },
+    { name: "Đặt trước sách", link: "/admin/dattruoc", icon: FiBookmark },
     { name: "Độc giả", link: "/admin/nguoidung", icon: FiUsers },
     { name: "Tiền phạt", link: "/admin/tienphat", icon: FiDollarSign },
 ];

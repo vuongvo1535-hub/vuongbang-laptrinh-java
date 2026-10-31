@@ -21,4 +21,15 @@ public interface EmailService {
      * Gửi email thử nghiệm cấu hình SMTP Gmail
      */
     Map<String, Object> guiEmailTest(String toEmail);
+
+    /**
+     * Gửi email nhắc nhở trả sách sắp hết hạn hoặc quá hạn
+     */
+    Map<String, Object> guiEmailNhacNhoTraSach(
+            String emailNhan,
+            String tenDocGia,
+            String maPhieu,
+            String danhSachSach,
+            long soNgayConLai
+    );
 }

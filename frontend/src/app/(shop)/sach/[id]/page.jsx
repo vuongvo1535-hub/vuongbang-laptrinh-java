@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import SachService from "@/services/shop/sachServices";
 import GioMuonService from "@/services/shop/gioMuonServices";
 import useGioMuon from "@/hooks/useGioMuon";
 import SachCard from "@/components/shop/sach/SachCard";
 import { dinhDangTien, layDuongDanAnh } from "@/utils/format";
-import { FiBook, FiCheck, FiShoppingCart, FiMapPin, FiCalendar, FiGlobe, FiFileText, FiTag } from "react-icons/fi";
+import { FiBook, FiCheck, FiShoppingCart, FiMapPin, FiCalendar, FiGlobe, FiFileText, FiTag, FiStar, FiMessageSquare, FiSend, FiUser, FiBookmark, FiBookOpen, FiHeart } from "react-icons/fi";
+import API_CONFIG from "@/config/api";
+import BookReaderModal from "@/components/shop/sach/BookReaderModal";
 
 const ANH_TRONG = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420" viewBox="0 0 300 420">
@@ -20,6 +22,7 @@ const ANH_TRONG = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
 
 export default function ChiTietSachPage() {
     const { id } = useParams();
+    const router = useRouter();
 
     const [sach, setSach] = useState(null);
     const [lienQuan, setLienQuan] = useState([]);
@@ -27,6 +30,160 @@ export default function ChiTietSachPage() {
     const [loi, setLoi] = useState("");
     const [thongBao, setThongBao] = useState(null);
     const [chiSoAnh, setChiSoAnh] = useState(0);
+    const [dangDatTruoc, setDangDatTruoc] = useState(false);
+    const [daDatTruoc, setDaDatTruoc] = useState(false);
+    const [trongTuSach, setTrongTuSach] = useState(false);
+    const [hienDocThu, setHienDocThu] = useState(false);
+
+    // Đặt trước sách
+    const datTruocSach = async () => {
+        let user = userHienTai;
+        if (!user) {
+            try {
+                user = JSON.parse(localStorage.getItem("user") || "null");
+            } catch {}
+        }
+        if (!user) {
+            alert("Vui lòng đăng nhập tài khoản độc giả để đặt trước sách!");
+            router.push("/login");
+            return;
+        }
+
+        const tenCuonSach = sach?.ten_sach ?? sach?.tenSach ?? "cuốn sách này";
+        if (!confirm(`Bạn có muốn đặt trước cuốn sách "${tenCuonSach}"? Khi có sách hoàn trả về thư viện, hệ thống sẽ ưu tiên giữ sách cho bạn.`)) return;
+
+        setDangDatTruoc(true);
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/datTruoc`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sachId: Number(id),
+                    docGiaId: user.docGiaId || user.taiKhoanId || user.id,
+                    tenDocGia: user.hoTen || user.tenDangNhap || "Độc giả",
+                    tenSach: tenCuonSach,
+                    anhBia: sach?.anh_bia || sach?.anhBia || ""
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setDaDatTruoc(true);
+                alert(`🎉 Đặt trước thành công! Cuốn sách "${tenCuonSach}" đã được ghi nhận vào hàng đợi của bạn. Bạn có thể theo dõi tại mục Phiếu mượn.`);
+            } else {
+                if (data.message && (data.message.includes("đã đặt trước") || data.message.includes("hàng đợi"))) {
+                    setDaDatTruoc(true);
+                }
+                alert(data.message || "Không thể đặt trước cuốn sách này.");
+            }
+        } catch (err) {
+            alert("Lỗi kết nối khi đặt trước: " + err.message);
+        } finally {
+            setDangDatTruoc(false);
+        }
+    };
+
+    // Thêm / Bỏ sách trong Tủ sách cá nhân
+    const toggleTuSach = async () => {
+        let user = userHienTai;
+        if (!user) {
+            try { user = JSON.parse(localStorage.getItem("user") || "null"); } catch {}
+        }
+        if (!user) {
+            alert("Vui lòng đăng nhập tài khoản độc giả để lưu sách vào tủ cá nhân!");
+            router.push("/login");
+            return;
+        }
+        const docGiaId = user.docGiaId || user.taiKhoanId || user.id;
+        const tenCuonSach = sach?.ten_sach ?? sach?.tenSach ?? "cuốn sách này";
+
+        if (trongTuSach) {
+            try {
+                await fetch(`${API_CONFIG.BASE_URL}/tuSach/docGia/${docGiaId}/sach/${id}`, { method: "DELETE" });
+                setTrongTuSach(false);
+                alert(`Đã gỡ "${tenCuonSach}" khỏi Tủ sách cá nhân của bạn.`);
+            } catch (err) {
+                alert("Lỗi khi gỡ khỏi tủ: " + err.message);
+            }
+        } else {
+            try {
+                const res = await fetch(`${API_CONFIG.BASE_URL}/tuSach`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        docGiaId,
+                        sachId: Number(id),
+                        tenSach: tenCuonSach,
+                        anhBia: sach?.anh_bia || sach?.anhBia || "",
+                        trangThaiDoc: "YEU_THICH"
+                    })
+                });
+                if (res.ok) {
+                    setTrongTuSach(true);
+                    alert(`❤️ Đã thêm "${tenCuonSach}" vào Tủ sách cá nhân thành công! Bạn có thể xem tại mục Tủ Sách.`);
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err.message);
+            }
+        }
+    };
+
+    // Đánh giá & bình luận sao
+    const [danhGiaData, setDanhGiaData] = useState({
+        danhSach: [],
+        diemTrungBinh: 5.0,
+        tongDanhGia: 0,
+        phanBo: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+    });
+    const [soSaoChon, setSoSaoChon] = useState(5);
+    const [noiDungDanhGia, setNoiDungDanhGia] = useState("");
+    const [dangGuiDanhGia, setDangGuiDanhGia] = useState(false);
+    const [userHienTai, setUserHienTai] = useState(null);
+
+    const taiDanhGia = async (sachId) => {
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/danhGia/sach/${sachId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setDanhGiaData(data);
+            }
+        } catch (e) {
+            console.error("Lỗi tải đánh giá:", e);
+        }
+    };
+
+    const guiDanhGia = async (e) => {
+        e.preventDefault();
+        if (!noiDungDanhGia.trim()) {
+            alert("Vui lòng nhập nội dung nhận xét của bạn");
+            return;
+        }
+        setDangGuiDanhGia(true);
+        try {
+            const body = {
+                sachId: Number(id),
+                docGiaId: userHienTai?.docGiaId || userHienTai?.taiKhoanId || userHienTai?.id || 1,
+                hoTen: userHienTai?.hoTen || userHienTai?.tenDangNhap || "Độc giả thư viện",
+                soSao: soSaoChon,
+                noiDung: noiDungDanhGia.trim()
+            };
+            const res = await fetch(`${API_CONFIG.BASE_URL}/danhGia`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                setNoiDungDanhGia("");
+                taiDanhGia(id);
+                alert("Cảm ơn bạn đã gửi đánh giá và nhận xét cho cuốn sách!");
+            } else {
+                alert("Không thể gửi đánh giá. Vui lòng thử lại sau.");
+            }
+        } catch (err) {
+            alert("Lỗi kết nối: " + err.message);
+        } finally {
+            setDangGuiDanhGia(false);
+        }
+    };
 
     const { gio } = useGioMuon();
 
@@ -64,6 +221,34 @@ export default function ChiTietSachPage() {
         }
 
         taiDuLieu();
+        taiDanhGia(id);
+
+        try {
+            const rawUser = localStorage.getItem("user");
+            if (rawUser) {
+                const u = JSON.parse(rawUser);
+                setUserHienTai(u);
+                const docGiaId = u.docGiaId || u.taiKhoanId || u.id;
+                if (docGiaId) {
+                    fetch(`${API_CONFIG.BASE_URL}/datTruoc/docGia/${docGiaId}`)
+                        .then(r => r.ok ? r.json() : [])
+                        .then(ds => {
+                            const tonTai = Array.isArray(ds) && ds.some(item => 
+                                String(item.sachId) === String(id) && 
+                                (item.trangThai === "CHO_CO_SACH" || item.trangThai === "DA_CO_SACH")
+                            );
+                            if (tonTai) setDaDatTruoc(true);
+                        })
+                        .catch(() => {});
+
+                    fetch(`${API_CONFIG.BASE_URL}/tuSach/kiemTra?docGiaId=${docGiaId}&sachId=${id}`)
+                        .then(r => r.ok ? r.json() : {})
+                        .then(d => { if (d?.daCo) setTrongTuSach(true); })
+                        .catch(() => {});
+                }
+            }
+        } catch {}
+
         return () => {
             dangHoatDong = false;
         };
@@ -200,6 +385,14 @@ export default function ChiTietSachPage() {
                             {conSach ? `Còn ${soBanSanSang}/${tongSoBan} cuốn sẵn sàng` : "Đã mượn hết"}
                         </span>
                     </div>
+
+                    <button
+                        onClick={() => setHienDocThu(true)}
+                        className="mt-3 w-full max-w-xs py-2.5 px-4 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition flex items-center justify-center gap-2 shadow-xs"
+                    >
+                        <FiBookOpen size={16} />
+                        <span>📖 Đọc thử trích đoạn sách</span>
+                    </button>
                 </div>
 
                 {/* Cột Phải: Thông tin chi tiết */}
@@ -223,6 +416,21 @@ export default function ChiTietSachPage() {
                         <p className="mt-1 text-sm text-gray-600">
                             Tác giả: <span className="font-semibold text-emerald-900">{tacGia}</span>
                         </p>
+
+                        {/* Điểm đánh giá sao */}
+                        <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center text-amber-400">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <FiStar
+                                        key={s}
+                                        className={s <= Math.round(danhGiaData.diemTrungBinh) ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                                        size={16}
+                                    />
+                                ))}
+                            </div>
+                            <span className="font-bold text-sm text-gray-800">{danhGiaData.diemTrungBinh} / 5</span>
+                            <span className="text-xs text-gray-400">({danhGiaData.tongDanhGia} nhận xét)</span>
+                        </div>
 
                         {/* Bảng chi tiết thuộc tính sách */}
                         <div className="mt-6 border rounded-2xl overflow-hidden divide-y divide-gray-100 text-xs">
@@ -263,6 +471,53 @@ export default function ChiTietSachPage() {
                                 {daTrongGio ? "Đã có trong giỏ mượn" : "Thêm vào giỏ mượn sách"}
                             </button>
 
+                            {daDatTruoc ? (
+                                <button
+                                    disabled
+                                    className="px-5 py-3 rounded-xl font-bold text-sm transition flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-not-allowed shadow-xs"
+                                    title="Bạn đã đặt trước cuốn sách này và đang trong hàng đợi nhận sách"
+                                >
+                                    <FiCheck size={18} className="text-emerald-600 stroke-[3]" />
+                                    <span>✅ Đã đặt trước</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={datTruocSach}
+                                    disabled={dangDatTruoc}
+                                    className={`px-5 py-3 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 ${
+                                        !conSach
+                                            ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20"
+                                            : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
+                                    }`}
+                                    title="Đặt trước sách để giữ chỗ trong hàng đợi khi sách về"
+                                >
+                                    <FiBookmark size={18} />
+                                    <span>{dangDatTruoc ? "Đang xử lý..." : !conSach ? "📌 Đặt trước sách (Hết bản sao)" : "📌 Đặt trước sách"}</span>
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => setHienDocThu(true)}
+                                className="px-5 py-3 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
+                                title="Đọc thử trích đoạn nội dung sách trực tuyến"
+                            >
+                                <FiBookOpen size={18} />
+                                <span>📖 Đọc thử</span>
+                            </button>
+
+                            <button
+                                onClick={toggleTuSach}
+                                className={`px-5 py-3 rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-2 ${
+                                    trongTuSach
+                                        ? "bg-rose-50 text-rose-700 border border-rose-300"
+                                        : "bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-300"
+                                }`}
+                                title={trongTuSach ? "Đã lưu trong tủ sách cá nhân (bấm để gỡ)" : "Thêm vào tủ sách cá nhân"}
+                            >
+                                <FiHeart size={18} className={trongTuSach ? "fill-rose-500 text-rose-500" : ""} />
+                                <span>{trongTuSach ? "❤️ Đã lưu tủ sách" : "❤️ Lưu vào tủ sách"}</span>
+                            </button>
+
                             <Link
                                 href="/giomuon"
                                 className="px-5 py-3 rounded-xl border border-gray-300 hover:border-emerald-600 text-gray-700 font-bold text-sm transition"
@@ -283,9 +538,130 @@ export default function ChiTietSachPage() {
                                 )}
                             </div>
                         )}
+
+                        {daDatTruoc && !thongBao && (
+                            <div className="mt-3 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                    <FiCheck size={16} className="text-emerald-600" />
+                                    Bạn đã đặt trước cuốn sách này và đang trong hàng đợi.
+                                </span>
+                                <Link href="/phieumuon" className="underline font-bold text-emerald-900 ml-2">
+                                    Xem hàng đợi →
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* ============================================================== */}
+            {/* KHU VỰC ĐÁNH GIÁ & NHẬN XÉT CỦA ĐỘC GIẢ (RATING & REVIEW) */}
+            {/* ============================================================== */}
+            <section className="mt-12 bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <FiMessageSquare className="text-emerald-600" />
+                            <span>Đánh giá & Nhận xét từ Độc giả</span>
+                        </h2>
+                        <p className="text-xs text-gray-400 mt-0.5">Chia sẻ cảm nhận về nội dung và chất lượng cuốn sách</p>
+                    </div>
+                    <div className="flex items-center gap-3 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-200">
+                        <span className="text-3xl font-black text-amber-600">{danhGiaData.diemTrungBinh}</span>
+                        <div>
+                            <div className="flex text-amber-400">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <FiStar key={s} className={s <= Math.round(danhGiaData.diemTrungBinh) ? "fill-amber-400 text-amber-400" : "text-gray-300"} size={14} />
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-gray-500 font-medium mt-0.5">{danhGiaData.tongDanhGia} lượt đánh giá</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Form gửi đánh giá */}
+                <form onSubmit={guiDanhGia} className="mt-6 p-5 rounded-2xl bg-gray-50 border border-gray-200/70 space-y-4">
+                    <h3 className="text-sm font-bold text-gray-800">Gửi đánh giá của bạn:</h3>
+                    
+                    {/* Chọn số sao */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 font-medium">Chọn số sao:</span>
+                        <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                                <button
+                                    type="button"
+                                    key={s}
+                                    onClick={() => setSoSaoChon(s)}
+                                    className="p-1 hover:scale-125 transition-transform"
+                                >
+                                    <FiStar size={22} className={s <= soSaoChon ? "fill-amber-400 text-amber-400" : "text-gray-300"} />
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-xs font-bold text-amber-600 ml-1">
+                            ({soSaoChon} sao - {soSaoChon === 5 ? "Tuyệt vời" : soSaoChon === 4 ? "Rất hay" : soSaoChon === 3 ? "Bình thường" : soSaoChon === 2 ? "Tạm được" : "Chưa hài lòng"})
+                        </span>
+                    </div>
+
+                    {/* Nhập nội dung */}
+                    <div>
+                        <textarea
+                            value={noiDungDanhGia}
+                            onChange={(e) => setNoiDungDanhGia(e.target.value)}
+                            placeholder="Chia sẻ cảm nhận của bạn về cuốn sách này để các độc giả khác cùng tham khảo..."
+                            rows={3}
+                            className="w-full p-3 text-xs text-gray-800 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                            Đăng với tên: <b className="text-emerald-700">{userHienTai?.hoTen || userHienTai?.tenDangNhap || "Độc giả yêu sách"}</b>
+                        </span>
+                        <button
+                            type="submit"
+                            disabled={dangGuiDanhGia}
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            <FiSend size={13} />
+                            <span>{dangGuiDanhGia ? "Đang gửi..." : "Gửi nhận xét"}</span>
+                        </button>
+                    </div>
+                </form>
+
+                {/* Danh sách các bình luận */}
+                <div className="mt-8 space-y-3">
+                    <h3 className="text-sm font-bold text-gray-700">Các nhận xét từ bạn đọc ({danhGiaData.danhSach?.length || 0}):</h3>
+                    {danhGiaData.danhSach?.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-4 text-center">Chưa có nhận xét nào. Hãy là người đầu tiên để lại cảm nghĩ về cuốn sách này!</p>
+                    ) : (
+                        danhGiaData.danhSach.map((item) => (
+                            <div key={item.id} className="p-4 rounded-2xl bg-white border border-gray-100 shadow-xs space-y-2 hover:bg-gray-50/50 transition">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                                            {(item.hoTen || "DG").substring(0, 2)}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-xs text-gray-800">{item.hoTen || "Độc giả thư viện"}</p>
+                                            <p className="text-[10px] text-gray-400">{item.ngayTao ? new Date(item.ngayTao).toLocaleDateString("vi-VN") : "Gần đây"}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex text-amber-400">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <FiStar key={s} size={13} className={s <= (item.soSao || 5) ? "fill-amber-400 text-amber-400" : "text-gray-200"} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-700 leading-relaxed pl-10.5">
+                                    {item.noiDung}
+                                </p>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </section>
 
             {/* Sách cùng thể loại liên quan */}
             {lienQuan.length > 0 && (
@@ -301,6 +677,15 @@ export default function ChiTietSachPage() {
                     </div>
                 </section>
             )}
+
+            {/* Modal Đọc Thử Sách */}
+            <BookReaderModal
+                sachId={id}
+                isOpen={hienDocThu}
+                onClose={() => setHienDocThu(false)}
+                onMuonSach={themVaoGio}
+                daTrongGio={daTrongGio}
+            />
         </div>
     );
 }

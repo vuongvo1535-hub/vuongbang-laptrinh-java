@@ -8,6 +8,7 @@ import com.example.demoChuong.entity.*;
 import com.example.demoChuong.exception.ResourceNotFoundException;
 import com.example.demoChuong.mapper.PhieuMuonMapper;
 import com.example.demoChuong.repository.*;
+import com.example.demoChuong.service.EmailService;
 import com.example.demoChuong.service.PhieuMuonService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PhieuMuonServiceImpl implements PhieuMuonService {
@@ -30,6 +33,8 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
     private final TheThuVienRepository theThuVienRepository;
     private final DocGiaRepository docGiaRepository;
     private final TienPhatRepository tienPhatRepository;
+    private final EmailService emailService;
+    private final DatTruocRepository datTruocRepository;
 
     public PhieuMuonServiceImpl(PhieuMuonRepository repository,
                                 PhieuMuonMapper mapper,
@@ -38,7 +43,9 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
                                 SachRepository sachRepository,
                                 TheThuVienRepository theThuVienRepository,
                                 DocGiaRepository docGiaRepository,
-                                TienPhatRepository tienPhatRepository) {
+                                TienPhatRepository tienPhatRepository,
+                                EmailService emailService,
+                                DatTruocRepository datTruocRepository) {
         this.repository = repository;
         this.mapper = mapper;
         this.chiTietRepository = chiTietRepository;
@@ -47,6 +54,8 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
         this.theThuVienRepository = theThuVienRepository;
         this.docGiaRepository = docGiaRepository;
         this.tienPhatRepository = tienPhatRepository;
+        this.emailService = emailService;
+        this.datTruocRepository = datTruocRepository;
     }
 
     @Override
@@ -255,6 +264,17 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
         }
         banSaoSachRepository.save(bss);
 
+        // Kiem tra hang doi dat truoc: neu sach da SAN_SANG thi danh dau uu tien cho nguoi dat truoc
+        if ("SAN_SANG".equals(bss.getTrangThai()) && bss.getSachId() != null) {
+            List<DatTruoc> dsCho = datTruocRepository.findBySachIdAndTrangThaiOrderByNgayDatAsc(bss.getSachId(), "CHO_CO_SACH");
+            if (!dsCho.isEmpty()) {
+                DatTruoc uuTien = dsCho.get(0);
+                uuTien.setTrangThai("DA_CO_SACH");
+                uuTien.setGhiChu("Sách đã được hoàn trả về thư viện. Sẵn sàng để độc giả đến quầy nhận mượn!");
+                datTruocRepository.save(uuTien);
+            }
+        }
+
         // Kiem tra qua han: 5.000d moi ngay tre
         LocalDate ngayTra = gioTra.toLocalDate();
         if (ngayTra.isAfter(ct.getNgayHenTra())) {
@@ -320,6 +340,134 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
                 ct.getTrangThai(),
                 ct.getGhiChu()
         );
+    }
+
+    // ==========================================
+    // 4. GIA HẠN PHIẾU MƯỢN (thêm 7 ngày)
+    // ==========================================
+    @Override
+    @Transactional
+    public PhieuMuonDTO giaHan(Long phieuMuonId) {
+        PhieuMuon phieu = timTheoId(phieuMuonId);
+
+        if (!"DANG_MUON".equals(phieu.getTrangThai())) {
+            throw new RuntimeException("Chỉ có thể gia hạn phiếu mượn đang ở trạng thái ĐANG MƯỢN");
+        }
+
+        List<ChiTietPhieuMuon> chiTiets = chiTietRepository.findByPhieuMuonId(phieuMuonId);
+        boolean coSachDangMuon = false;
+        for (ChiTietPhieuMuon ct : chiTiets) {
+            if ("DANG_MUON".equals(ct.getTrangThai())) {
+                ct.setNgayHenTra(ct.getNgayHenTra().plusDays(7));
+                chiTietRepository.save(ct);
+                coSachDangMuon = true;
+            }
+        }
+
+        if (!coSachDangMuon) {
+            throw new RuntimeException("Không có sách nào đang mượn trong phiếu này để gia hạn");
+        }
+
+        phieu.setGhiChu((phieu.getGhiChu() != null ? phieu.getGhiChu() + " | " : "") +
+                "Gia hạn +7 ngày lúc " + java.time.LocalDateTime.now().toString().substring(0, 16));
+        return mapper.toDTO(repository.save(phieu));
+    }
+
+    // ==========================================
+    // 5. GỬI EMAIL NHẮC NHỞ TRẢ SÁCH
+    // ==========================================
+    @Override
+    public Map<String, Object> guiEmailNhacNho(Long phieuMuonId) {
+        PhieuMuon phieu = timTheoId(phieuMuonId);
+        DocGia docGia = docGiaRepository.findById(phieu.getDocGiaId())
+                .orElseThrow(() -> new ResourceNotFoundException("độc giả", phieu.getDocGiaId()));
+
+        String email = docGia.getEmail();
+        if (email == null || email.isBlank()) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", "Độc giả này chưa cập nhật địa chỉ Email");
+            return err;
+        }
+
+        List<ChiTietPhieuMuon> chiTiets = chiTietRepository.findByPhieuMuonId(phieuMuonId);
+        StringBuilder dsSachBuilder = new StringBuilder();
+        long minDays = 999;
+        LocalDate homNay = LocalDate.now();
+
+        for (ChiTietPhieuMuon ct : chiTiets) {
+            if ("DANG_MUON".equals(ct.getTrangThai())) {
+                BanSaoSach bss = banSaoSachRepository.findById(ct.getBanSaoSachId()).orElse(null);
+                String tenSach = "Sách thư viện";
+                if (bss != null && bss.getSachId() != null) {
+                    tenSach = sachRepository.findById(bss.getSachId()).map(Sach::getTenSach).orElse("Sách thư viện");
+                }
+                long soNgay = ChronoUnit.DAYS.between(homNay, ct.getNgayHenTra());
+                if (soNgay < minDays) minDays = soNgay;
+
+                dsSachBuilder.append("• <b>").append(tenSach).append("</b>")
+                        .append(" (Mã vạch: ").append(bss != null ? bss.getMaVach() : "-").append(")")
+                        .append(" - Hạn trả: <b style='color: #059669;'>").append(ct.getNgayHenTra()).append("</b><br/>");
+            }
+        }
+
+        if (dsSachBuilder.length() == 0) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", "Phiếu mượn này đã trả hết sách, không cần nhắc nhở");
+            return err;
+        }
+
+        return emailService.guiEmailNhacNhoTraSach(
+                email,
+                docGia.getHoTen() != null ? docGia.getHoTen() : "Độc giả #" + docGia.getId(),
+                phieu.getMaPhieu(),
+                dsSachBuilder.toString(),
+                minDays
+        );
+    }
+
+    @Override
+    public Map<String, Object> quetVaGuiEmailNhacNhoTatCa() {
+        List<PhieuMuon> dsPhieu = repository.findAll();
+        int daGui = 0;
+        int tongQuet = 0;
+        LocalDate homNay = LocalDate.now();
+
+        for (PhieuMuon p : dsPhieu) {
+            if ("DANG_MUON".equals(p.getTrangThai())) {
+                tongQuet++;
+                List<ChiTietPhieuMuon> chiTiets = chiTietRepository.findByPhieuMuonId(p.getId());
+                boolean canNhac = false;
+
+                for (ChiTietPhieuMuon ct : chiTiets) {
+                    if ("DANG_MUON".equals(ct.getTrangThai()) && ct.getNgayHenTra() != null) {
+                        long soNgay = ChronoUnit.DAYS.between(homNay, ct.getNgayHenTra());
+                        // Nhắc nhở nếu sắp đến hạn trong vòng 3 ngày hoặc đã quá hạn
+                        if (soNgay <= 3) {
+                            canNhac = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (canNhac) {
+                    try {
+                        Map<String, Object> res = guiEmailNhacNho(p.getId());
+                        if (Boolean.TRUE.equals(res.get("success"))) {
+                            daGui++;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        Map<String, Object> ketQua = new HashMap<>();
+        ketQua.put("success", true);
+        ketQua.put("tongPhieuDangMuon", tongQuet);
+        ketQua.put("soEmailDaGui", daGui);
+        ketQua.put("message", "Đã quét " + tongQuet + " phiếu đang mượn và gửi thành công " + daGui + " email nhắc nhở!");
+        return ketQua;
     }
 
     private PhieuMuon timTheoId(Long id) {

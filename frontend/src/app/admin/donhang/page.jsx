@@ -85,9 +85,82 @@ export default function PhieuMuonAdminPage() {
         }
     };
 
+    const handleGiaHan = async (id) => {
+        if (!confirm(`Gia hạn thêm 7 ngày cho phiếu mượn #${id}?`)) return;
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/giaHan`, { method: "POST" });
+            if (res.ok) {
+                alert("Gia hạn +7 ngày thành công!");
+                taiDanhSach(trang);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || "Không thể gia hạn phiếu mượn này.");
+            }
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        }
+    };
+
+    const handleNhacNhoEmail = async (id) => {
+        if (!confirm(`Gửi email thông báo nhắc nhở hạn trả sách cho phiếu #${id}?`)) return;
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/nhacNhoEmail`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                alert(data.message || "Đã gửi email nhắc nhở trả sách thành công!");
+            } else {
+                alert(data.message || "Không thể gửi email nhắc nhở.");
+            }
+        } catch (err) {
+            alert("Lỗi kết nối: " + err.message);
+        }
+    };
+
+    const handleQuetVaNhacNhoTatCa = async () => {
+        if (!confirm("Hệ thống sẽ quét toàn bộ các phiếu đang mượn và gửi email nhắc nhở cho tất cả độc giả có sách sắp đến hạn (<= 3 ngày) hoặc đã quá hạn. Tiếp tục?")) return;
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/quetNhacNhoEmail`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                alert(`🎉 ${data.message || `Đã gửi ${data.soEmailDaGui || 0} email nhắc nhở thành công.`}`);
+            } else {
+                alert("Lỗi khi quét: " + (data.message || "Không xác định"));
+            }
+        } catch (err) {
+            alert("Lỗi kết nối: " + err.message);
+        }
+    };
+
     const formatNgay = (ngay) => {
         if (!ngay) return "-";
         return new Date(ngay).toLocaleDateString("vi-VN");
+    };
+
+    const xuatExcel = () => {
+        if (danhSach.length === 0) {
+            alert("Không có dữ liệu phiếu mượn để xuất!");
+            return;
+        }
+
+        const tieuDe = ["Mã Phiếu", "Tên Độc Giả", "Mã Thẻ / ID", "Ngày Mượn", "Trạng Thái", "Ghi Chú"];
+        const dongDuLieu = danhSach.map((row) => [
+            `"${row.maPhieu || `PM-${row.id}`}"`,
+            `"${row.tenDocGia || mapDocGia[row.docGiaId] || `Độc giả #${row.docGiaId}`}"`,
+            `"#${row.docGiaId}"`,
+            `"${formatNgay(row.ngayMuon || row.ngay_tao)}"`,
+            `"${row.trangThai === "DA_TRA" ? "Đã trả xong" : row.trangThai === "DANG_MUON" ? "Đang mượn" : row.trangThai || "Khác"}"`,
+            `"${(row.ghiChu || "").replace(/"/g, '""')}"`
+        ]);
+
+        const csvContent = "\uFEFF" + [tieuDe.join(","), ...dongDuLieu.map(d => d.join(","))].join("\r\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Bao_Cao_Phieu_Muon_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -99,6 +172,20 @@ export default function PhieuMuonAdminPage() {
                     <p className="text-sm text-gray-500">Quản lý các phiếu mượn sách của độc giả</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={handleQuetVaNhacNhoTatCa}
+                        className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition shadow-sm"
+                        title="Tự động quét và gửi email nhắc nhở cho tất cả sách sắp đến hạn mượn"
+                    >
+                        ✉️ Quét & Nhắc nhở hạn trả
+                    </button>
+                    <button
+                        onClick={xuatExcel}
+                        className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition shadow-sm"
+                        title="Tải tệp Excel danh sách phiếu mượn"
+                    >
+                        📊 Xuất báo cáo Excel
+                    </button>
                     <button
                         onClick={() => router.push("/admin/quetma")}
                         className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
@@ -199,6 +286,24 @@ export default function PhieuMuonAdminPage() {
                                             >
                                                 Xem chi tiết
                                             </button>
+                                            {(row.trangThai === "DANG_MUON" || row.trang_thai === "DANG_MUON") && (
+                                                <button
+                                                    onClick={() => handleGiaHan(row.id)}
+                                                    className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 flex items-center gap-1"
+                                                    title="Gia hạn thêm 7 ngày vào hạn trả"
+                                                >
+                                                    <span>🔄</span> Gia hạn +7 ngày
+                                                </button>
+                                            )}
+                                            {(row.trangThai === "DANG_MUON" || row.trang_thai === "DANG_MUON") && (
+                                                <button
+                                                    onClick={() => handleNhacNhoEmail(row.id)}
+                                                    className="rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 flex items-center gap-1"
+                                                    title="Gửi email nhắc nhở độc giả trả sách"
+                                                >
+                                                    <span>✉️</span> Nhắc email
+                                                </button>
+                                            )}
                                             {(row.trangThai === "DANG_MUON" || row.trang_thai === "DANG_MUON") && (
                                                 <button
                                                     onClick={() => handleCapNhatTrangThai(row.id, "QUA_HAN")}
