@@ -868,3 +868,68 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+-- ========================================================
+-- BẢNG ĐẶT TRƯỚC SÁCH KHI HẾT BẢN SAO TRÊN KỆ
+-- ========================================================
+CREATE TABLE IF NOT EXISTS `dat_truoc` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `sach_id` bigint(20) DEFAULT NULL,
+  `doc_gia_id` bigint(20) DEFAULT NULL,
+  `ten_doc_gia` varchar(255) DEFAULT NULL,
+  `ten_sach` varchar(255) DEFAULT NULL,
+  `anh_bia` varchar(500) DEFAULT NULL,
+  `ngay_dat` datetime DEFAULT NULL,
+  `trang_thai` varchar(50) DEFAULT 'CHO_CO_SACH',
+  `ghi_chu` varchar(500) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================================
+-- BẢNG ĐÁNH GIÁ & NHẬN XÉT SÁCH CỦA ĐỘC GIẢ
+-- ========================================================
+CREATE TABLE IF NOT EXISTS `danh_gia` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `sach_id` bigint(20) DEFAULT NULL,
+  `doc_gia_id` bigint(20) DEFAULT NULL,
+  `ho_ten` varchar(255) DEFAULT NULL,
+  `so_sao` int(11) DEFAULT 5,
+  `noi_dung` text DEFAULT NULL,
+  `ngay_tao` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ========================================================
+-- BẢNG TỦ SÁCH CÁ NHÂN & DANH SÁCH YÊU THÍCH CỦA ĐỘC GIẢ
+-- ========================================================
+CREATE TABLE IF NOT EXISTS `tu_sach` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `doc_gia_id` bigint(20) NOT NULL,
+  `sach_id` bigint(20) NOT NULL,
+  `ten_sach` varchar(255) DEFAULT NULL,
+  `anh_bia` varchar(500) DEFAULT NULL,
+  `tac_gia` varchar(255) DEFAULT NULL,
+  `trang_thai_doc` varchar(50) DEFAULT 'YEU_THICH',
+  `ghi_chu` text DEFAULT NULL,
+  `ngay_them` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_docgia_sach` (`doc_gia_id`, `sach_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ========================================================
+-- BẢNG TRUNG TÂM THÔNG BÁO CHO ĐỘC GIẢ
+-- ========================================================
+CREATE TABLE IF NOT EXISTS `thong_bao` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `doc_gia_id` bigint(20) DEFAULT NULL,
+  `tieu_de` varchar(255) NOT NULL,
+  `noi_dung` text NOT NULL,
+  `loai_thong_bao` varchar(50) DEFAULT 'HE_THONG',
+  `lien_ket` varchar(255) DEFAULT NULL,
+  `da_doc` tinyint(1) DEFAULT 0,
+  `ngay_tao` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

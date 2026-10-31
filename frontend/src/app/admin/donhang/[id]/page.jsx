@@ -95,6 +95,21 @@ export default function ChiTietPhieuMuonPage() {
         }
     };
 
+    const handleGuiEmailNhacNho = async () => {
+        if (!confirm(`Gửi email nhắc nhở hạn trả sách cho độc giả của phiếu #${id}?`)) return;
+        try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/nhacNhoEmail`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                alert(data.message || "Đã gửi email nhắc nhở thành công!");
+            } else {
+                alert(data.message || "Không thể gửi email nhắc nhở.");
+            }
+        } catch (err) {
+            alert("Lỗi kết nối: " + err.message);
+        }
+    };
+
     const formatNgay = (d) => d ? new Date(d).toLocaleDateString("vi-VN") : "-";
     const formatNgayGio = (d) => d ? new Date(d).toLocaleString("vi-VN") : "-";
 
@@ -106,20 +121,100 @@ export default function ChiTietPhieuMuonPage() {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex items-center gap-3">
-                <button
-                    onClick={() => router.back()}
-                    className="text-sm text-gray-500 hover:text-emerald-600"
-                >
-                    ← Quay lại
-                </button>
-                <h1 className="text-2xl font-bold text-gray-800">
-                    Chi tiết phiếu mượn: <span className="text-emerald-700">{phieu.maPhieu || `PM-${phieu.id}`}</span>
-                </h1>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => router.back()}
+                        className="text-sm text-gray-500 hover:text-emerald-600"
+                    >
+                        ← Quay lại
+                    </button>
+                    <h1 className="text-2xl font-bold text-gray-800">
+                        Chi tiết phiếu mượn: <span className="text-emerald-700">{phieu.maPhieu || `PM-${phieu.id}`}</span>
+                    </h1>
+                </div>
+                <div className="flex gap-2">
+                    {phieu.trangThai === "DANG_MUON" && (
+                        <button
+                            onClick={handleGuiEmailNhacNho}
+                            className="rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-sm"
+                            title="Gửi email nhắc nhở độc giả hạn trả sách"
+                        >
+                            ✉️ Gửi email nhắc nhở
+                        </button>
+                    )}
+                    <button
+                        onClick={() => window.print()}
+                        className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-bold text-white transition flex items-center gap-1.5 shadow-sm"
+                        title="In phiếu mượn sách hoặc xuất PDF"
+                    >
+                        🖨️ In phiếu mượn (PDF)
+                    </button>
+                </div>
+            </div>
+
+            {/* BẢN IN PHIẾU MƯỢN CHUẨN (HIỂN THỊ KHI IN HOẶC XUẤT PDF) */}
+            <div className="hidden print:block border-2 border-gray-800 p-8 rounded-lg bg-white text-black font-serif">
+                <div className="text-center pb-4 border-b-2 border-gray-800">
+                    <h3 className="text-sm font-bold uppercase tracking-widest">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+                    <p className="text-xs italic">Độc lập - Tự do - Hạnh phúc</p>
+                    <div className="w-32 h-0.5 bg-black mx-auto my-2" />
+                    <h2 className="text-2xl font-black uppercase mt-3">PHIẾU MƯỢN SÁCH THƯ VIỆN</h2>
+                    <p className="text-xs font-mono mt-1">Mã phiếu: <b>{phieu.maPhieu || `PM-${phieu.id}`}</b></p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 my-6 text-sm">
+                    <div>
+                        <p>Họ tên độc giả: <b>{phieu.tenDocGia || `Độc giả #${phieu.docGiaId}`}</b></p>
+                        <p>Mã thẻ độc giả: <b>#{phieu.docGiaId}</b></p>
+                    </div>
+                    <div>
+                        <p>Ngày lập phiếu: <b>{formatNgayGio(phieu.ngayMuon)}</b></p>
+                        <p>Trạng thái: <b>{phieu.trangThai === "DA_TRA" ? "Đã hoàn tất trả" : "Đang mượn"}</b></p>
+                    </div>
+                </div>
+
+                <table className="w-full text-left text-xs border border-collapse border-black mb-6">
+                    <thead>
+                        <tr className="bg-gray-200">
+                            <th className="border border-black p-2 text-center w-10">STT</th>
+                            <th className="border border-black p-2">Tên sách</th>
+                            <th className="border border-black p-2">Mã vạch</th>
+                            <th className="border border-black p-2 text-center">Hạn trả</th>
+                            <th className="border border-black p-2 text-center">Tình trạng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {chiTiet.map((ct, idx) => (
+                            <tr key={ct.id}>
+                                <td className="border border-black p-2 text-center">{idx + 1}</td>
+                                <td className="border border-black p-2 font-bold">{ct.tenSach || "Sách thư viện"}</td>
+                                <td className="border border-black p-2 font-mono">{ct.maVach || "-"}</td>
+                                <td className="border border-black p-2 text-center">{formatNgay(ct.ngayHenTra)}</td>
+                                <td className="border border-black p-2 text-center">{ct.tinhTrangLucMuon || "Tốt"}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="flex justify-between text-center text-sm pt-8">
+                    <div>
+                        <p className="font-bold">Người mượn sách</p>
+                        <p className="text-xs italic">(Ký và ghi rõ họ tên)</p>
+                        <div className="h-20" />
+                        <p className="font-semibold">{phieu.tenDocGia || ""}</p>
+                    </div>
+                    <div>
+                        <p className="font-bold">Thủ thư phụ trách</p>
+                        <p className="text-xs italic">(Ký, đóng dấu)</p>
+                        <div className="h-20" />
+                        <p className="font-semibold">Thư viện số</p>
+                    </div>
+                </div>
             </div>
 
             {/* Thông tin phiếu mượn */}
-            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100 print:hidden">
                 <h2 className="font-bold text-gray-700 mb-4 text-lg">Thông tin phiếu</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
@@ -151,7 +246,7 @@ export default function ChiTietPhieuMuonPage() {
             </div>
 
             {/* Danh sách sách trong phiếu */}
-            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100 print:hidden">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="font-bold text-gray-700 text-lg">
                         Danh sách sách ({chiTiet.length} cuốn)

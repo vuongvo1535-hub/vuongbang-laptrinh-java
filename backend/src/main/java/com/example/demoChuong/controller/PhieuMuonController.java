@@ -53,6 +53,29 @@ public class PhieuMuonController {
         return ResponseEntity.ok(service.traSach(req));
     }
 
+    /** Gia hạn phiếu mượn 1-click (+7 ngày vào ngày hẹn trả). */
+    @PostMapping("/{id}/giaHan")
+    public ResponseEntity<PhieuMuonDTO> giaHan(@PathVariable Long id) {
+        return ResponseEntity.ok(service.giaHan(id));
+    }
+
+    @PutMapping("/{id}/giaHan")
+    public ResponseEntity<PhieuMuonDTO> giaHanPut(@PathVariable Long id) {
+        return ResponseEntity.ok(service.giaHan(id));
+    }
+
+    /** Gửi email nhắc nhở trả sách cho 1 phiếu mượn cụ thể */
+    @PostMapping("/{id}/nhacNhoEmail")
+    public ResponseEntity<Map<String, Object>> guiEmailNhacNho(@PathVariable Long id) {
+        return ResponseEntity.ok(service.guiEmailNhacNho(id));
+    }
+
+    /** Tự động quét toàn bộ hệ thống và gửi email nhắc nhở cho tất cả sách sắp đến hạn / quá hạn */
+    @PostMapping("/quetNhacNhoEmail")
+    public ResponseEntity<Map<String, Object>> quetVaGuiEmailNhacNho() {
+        return ResponseEntity.ok(service.quetVaGuiEmailNhacNhoTatCa());
+    }
+
     @PostMapping
     public ResponseEntity<PhieuMuonDTO> them(@RequestBody PhieuMuonDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.them(dto));
