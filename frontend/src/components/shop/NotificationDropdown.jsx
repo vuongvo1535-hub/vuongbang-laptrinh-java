@@ -47,13 +47,18 @@ export default function NotificationDropdown({ user }) {
         setDangTai(true);
         try {
             const [resDS, resDem] = await Promise.all([
-                fetch(`${API_CONFIG.BASE_URL}/thongBao/docGia/${docGiaId}`).then(r => r.ok ? r.json() : []),
-                fetch(`${API_CONFIG.BASE_URL}/thongBao/chuaDoc/${docGiaId}`).then(r => r.ok ? r.json() : { soLuongChuaDoc: 0 })
+                fetch(`${API_CONFIG.BASE_URL}/thongBao/docGia/${docGiaId}`)
+                    .then(r => (r.ok ? r.json() : []))
+                    .catch(() => []),
+                fetch(`${API_CONFIG.BASE_URL}/thongBao/chuaDoc/${docGiaId}`)
+                    .then(r => (r.ok ? r.json() : { soLuongChuaDoc: 0 }))
+                    .catch(() => ({ soLuongChuaDoc: 0 }))
             ]);
             setDanhSach(Array.isArray(resDS) ? resDS : []);
-            setSoLuongChuaDoc(resDem.soLuongChuaDoc || 0);
+            setSoLuongChuaDoc(resDem?.soLuongChuaDoc || 0);
         } catch (err) {
-            console.error("Lỗi nạp thông báo:", err);
+            setDanhSach([]);
+            setSoLuongChuaDoc(0);
         } finally {
             setDangTai(false);
         }
@@ -97,12 +102,10 @@ export default function NotificationDropdown({ user }) {
     const docTatCa = async () => {
         if (!docGiaId || soLuongChuaDoc === 0) return;
         try {
-            await fetch(`${API_CONFIG.BASE_URL}/thongBao/docGia/${docGiaId}/docTatCa`, { method: "PUT" });
+            await fetch(`${API_CONFIG.BASE_URL}/thongBao/docGia/${docGiaId}/docTatCa`, { method: "PUT" }).catch(() => {});
             setDanhSach(prev => prev.map(x => ({ ...x, daDoc: true })));
             setSoLuongChuaDoc(0);
-        } catch (err) {
-            console.error("Lỗi đánh dấu đọc tất cả:", err);
-        }
+        } catch (err) {}
     };
 
     if (!user) return null;
