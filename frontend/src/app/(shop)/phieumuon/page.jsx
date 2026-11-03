@@ -115,20 +115,33 @@ export default function PhieuMuonUserPage() {
         }
         setDangTai(true);
         try {
-            // 1. Tải phiếu mượn của độc giả
+            // 1. Tải phiếu mượn của độc giả (mới nhất lên đầu)
             const resPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${encodeURIComponent(docGiaId)}`);
             if (resPhieu.ok) {
                 const dataPhieu = await resPhieu.json();
-                setDsPhieu(Array.isArray(dataPhieu) ? dataPhieu : []);
+                const listPhieu = Array.isArray(dataPhieu) ? dataPhieu : [];
+                listPhieu.sort((a, b) => {
+                    const timeA = a.ngayMuon ? new Date(a.ngayMuon).getTime() : 0;
+                    const timeB = b.ngayMuon ? new Date(b.ngayMuon).getTime() : 0;
+                    if (timeB !== timeA) return timeB - timeA;
+                    return (b.id || 0) - (a.id || 0);
+                });
+                setDsPhieu(listPhieu);
             } else {
                 setDsPhieu([]);
             }
 
-            // 2. Tải danh sách tiền phạt của độc giả
+            // 2. Tải danh sách tiền phạt của độc giả (mới nhất lên đầu)
             const resPhat = await fetch(`${API_CONFIG.BASE_URL}/tienPhat?docGiaId=${encodeURIComponent(docGiaId)}`);
             if (resPhat.ok) {
                 const dataPhat = await resPhat.json();
                 const list = Array.isArray(dataPhat) ? dataPhat : [];
+                list.sort((a, b) => {
+                    const timeA = a.ngayTao ? new Date(a.ngayTao).getTime() : 0;
+                    const timeB = b.ngayTao ? new Date(b.ngayTao).getTime() : 0;
+                    if (timeB !== timeA) return timeB - timeA;
+                    return (b.id || 0) - (a.id || 0);
+                });
                 setDsPhat(list);
                 // Tự động chọn khoản phạt chưa thanh toán đầu tiên cho bảng bên phải
                 const chuaThanhToan = list.find((p) => p.trangThai === "CHUA_THANH_TOAN");
@@ -141,12 +154,19 @@ export default function PhieuMuonUserPage() {
                 setDsPhat([]);
             }
 
-            // 3. Tải danh sách đặt trước của độc giả
+            // 3. Tải danh sách đặt trước của độc giả (mới nhất lên đầu)
             try {
                 const resDat = await fetch(`${API_CONFIG.BASE_URL}/datTruoc/docGia/${encodeURIComponent(docGiaId)}`);
                 if (resDat.ok) {
                     const dataDat = await resDat.json();
-                    setDsDatTruoc(Array.isArray(dataDat) ? dataDat : []);
+                    const listDat = Array.isArray(dataDat) ? dataDat : [];
+                    listDat.sort((a, b) => {
+                        const timeA = a.ngayDat ? new Date(a.ngayDat).getTime() : 0;
+                        const timeB = b.ngayDat ? new Date(b.ngayDat).getTime() : 0;
+                        if (timeB !== timeA) return timeB - timeA;
+                        return (b.id || 0) - (a.id || 0);
+                    });
+                    setDsDatTruoc(listDat);
                 } else {
                     setDsDatTruoc([]);
                 }

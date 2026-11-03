@@ -35,9 +35,9 @@ public class TienPhatServiceImpl implements TienPhatService {
         if (docGiaId != null) {
             ds = repository.findByDocGiaIdAndTrangThai(docGiaId, trangThai);
         } else if (trangThai != null && !trangThai.isBlank()) {
-            ds = repository.findByTrangThai(trangThai);
+            ds = repository.findByTrangThaiOrderByIdDesc(trangThai);
         } else {
-            ds = repository.findAll();
+            ds = repository.findAllOrderByIdDesc();
         }
         return ds.stream().map(this::toDTO).toList();
     }

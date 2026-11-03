@@ -12,6 +12,9 @@ public interface TacGiaRepository extends JpaRepository<TacGia, Long> {
 
     List<TacGia> findByTenTacGiaContainingIgnoreCase(String tuKhoa);
 
+    @Query("SELECT tg FROM TacGia tg ORDER BY tg.id DESC")
+    List<TacGia> findAllOrderByIdDesc();
+
     /** Lay cac tac gia cua mot sach thong qua bang sach_tac_gia. */
     @Query(value = "SELECT tg.* FROM tac_gia tg JOIN sach_tac_gia stg ON stg.tac_gia_id = tg.id WHERE stg.sach_id = ?1 ORDER BY tg.id",
             nativeQuery = true)

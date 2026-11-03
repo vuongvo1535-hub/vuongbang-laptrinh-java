@@ -24,7 +24,7 @@ public class SachServiceImpl implements SachService {
 
     @Override
     public List<SachDTO> layTatCa() {
-        return repository.findAll().stream().map(mapper::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(mapper::toDTO).toList();
     }
 
     @Override

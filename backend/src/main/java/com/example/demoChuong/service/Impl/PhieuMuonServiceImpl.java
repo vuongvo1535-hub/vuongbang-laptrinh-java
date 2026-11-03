@@ -60,7 +60,7 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
 
     @Override
     public List<PhieuMuonDTO> layTatCa() {
-        return repository.findAll().stream().map(mapper::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(mapper::toDTO).toList();
     }
 
     @Override

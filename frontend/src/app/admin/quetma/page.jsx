@@ -270,7 +270,10 @@ export default function WebQuetMaAdminPage() {
                         } catch {}
                         try {
                             const rPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${the.docGiaId}`);
-                            if (rPhieu.ok) dsPhieu = await rPhieu.json();
+                            if (rPhieu.ok) {
+                                const list = await rPhieu.json();
+                                dsPhieu = (Array.isArray(list) ? list : []).sort((a, b) => (b.id || 0) - (a.id || 0));
+                            }
                         } catch {}
 
                         if (dg) {
@@ -299,7 +302,10 @@ export default function WebQuetMaAdminPage() {
                     } catch {}
                     try {
                         const rPhieu = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon?docGiaId=${dg.id}`);
-                        if (rPhieu.ok) dsPhieu = await rPhieu.json();
+                        if (rPhieu.ok) {
+                            const list = await rPhieu.json();
+                            dsPhieu = (Array.isArray(list) ? list : []).sort((a, b) => (b.id || 0) - (a.id || 0));
+                        }
                     } catch {}
 
                     setKetQuaThe({ docGia: dg, theThuVien: the, phieuMuon: dsPhieu });

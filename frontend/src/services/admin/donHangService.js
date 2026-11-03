@@ -36,6 +36,14 @@ export async function getDonHangs(page = 1, search = "") {
         const rawList = Array.isArray(data) ? data : (data.data || []);
         let formatted = rawList.map(chuanHoaPhieuMuon);
 
+        // Đảm bảo phiếu mượn mới nhất luôn ở đầu bảng
+        formatted.sort((a, b) => {
+            const timeA = a.ngay_tao || a.ngayMuon ? new Date(a.ngay_tao || a.ngayMuon).getTime() : 0;
+            const timeB = b.ngay_tao || b.ngayMuon ? new Date(b.ngay_tao || b.ngayMuon).getTime() : 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return (b.id || 0) - (a.id || 0);
+        });
+
         if (search.trim()) {
             formatted = formatted.filter((x) =>
                 (x.ma_don_hang || "").toLowerCase().includes(search.toLowerCase()) ||

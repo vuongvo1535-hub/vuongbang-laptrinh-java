@@ -44,7 +44,9 @@ export default function BaiVietPage() {
             const ketQua = await getBaiViets(trang, tuKhoaTim);
 
             // Cập nhật danh sách và thông tin phân trang.
-            setBaiViets(ketQua.data || []);
+            const dsBaiViet = Array.isArray(ketQua.data) ? [...ketQua.data] : [];
+            dsBaiViet.sort((a, b) => (b.id || 0) - (a.id || 0));
+            setBaiViets(dsBaiViet);
             setTrangHienTai(ketQua.current_page || 1);
             setSoTrang(ketQua.last_page || 1);
         } catch (error) {
@@ -66,7 +68,9 @@ export default function BaiVietPage() {
 
                 // Chỉ cập nhật nếu trang chưa bị đóng.
                 if (!daHuy) {
-                    setBaiViets(ketQua.data || []);
+                    const dsBaiViet = Array.isArray(ketQua.data) ? [...ketQua.data] : [];
+            dsBaiViet.sort((a, b) => (b.id || 0) - (a.id || 0));
+            setBaiViets(dsBaiViet);
                     setTrangHienTai(ketQua.current_page || 1);
                     setSoTrang(ketQua.last_page || 1);
                 }

@@ -17,7 +17,14 @@ export default function AdminDatTruocPage() {
             const res = await fetch(`${API_CONFIG.BASE_URL}/datTruoc`);
             if (res.ok) {
                 const data = await res.json();
-                setDanhSach(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data) ? data : [];
+                list.sort((a, b) => {
+                    const timeA = a.ngayDat ? new Date(a.ngayDat).getTime() : 0;
+                    const timeB = b.ngayDat ? new Date(b.ngayDat).getTime() : 0;
+                    if (timeB !== timeA) return timeB - timeA;
+                    return (b.id || 0) - (a.id || 0);
+                });
+                setDanhSach(list);
             } else {
                 setDanhSach([]);
             }

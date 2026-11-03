@@ -21,7 +21,7 @@ public class NhaXuatBanServiceImpl implements NhaXuatBanService {
 
     @Override
     public List<NhaXuatBanDTO> layTatCa() {
-        return repository.findAll().stream().map(this::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(this::toDTO).toList();
     }
 
     @Override

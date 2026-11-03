@@ -21,7 +21,7 @@ public class TacGiaServiceImpl implements TacGiaService {
 
     @Override
     public List<TacGiaDTO> layTatCa() {
-        return repository.findAll().stream().map(this::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(this::toDTO).toList();
     }
 
     @Override

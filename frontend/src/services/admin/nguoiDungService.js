@@ -38,6 +38,9 @@ export async function getNguoiDungs(page = 1, search = "") {
         const rawList = Array.isArray(data) ? data : (data.data || []);
         const formatted = rawList.map(chuanHoaDocGia);
 
+        // Độc giả đăng ký mới nhất lên đầu danh sách
+        formatted.sort((a, b) => (b.id || 0) - (a.id || 0));
+
         const perPage = 10;
         const total = formatted.length;
         const lastPage = Math.max(1, Math.ceil(total / perPage));

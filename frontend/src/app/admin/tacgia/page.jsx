@@ -25,7 +25,9 @@ export default function TacGiaAdminPage() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                setDsTacGia(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data) ? data : [];
+                list.sort((a, b) => (b.id || 0) - (a.id || 0));
+                setDsTacGia(list);
             }
         } catch (err) {
             console.error("Lỗi tải tác giả:", err);

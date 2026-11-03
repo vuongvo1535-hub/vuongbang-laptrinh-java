@@ -34,6 +34,8 @@ export async function getThuongHieus(page = 1, perPage = 10) {
             const json = await res.json();
             const rawList = Array.isArray(json) ? json : (json.data || []);
             const formatted = rawList.map(chuanHoa).filter(Boolean);
+            // Thương hiệu / NXB mới nhất lên đầu
+            formatted.sort((a, b) => (b.id || 0) - (a.id || 0));
             if (formatted.length > 0) {
                 const total = formatted.length;
                 const lastPage = Math.max(1, Math.ceil(total / perPage));

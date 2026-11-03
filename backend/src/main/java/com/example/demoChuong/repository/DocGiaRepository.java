@@ -24,6 +24,10 @@ public interface DocGiaRepository extends JpaRepository<DocGia, Long> {
            "LOWER(d.hoTen) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) OR " +
            "LOWER(d.maDocGia) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) OR " +
            "(d.soDienThoai IS NOT NULL AND d.soDienThoai LIKE CONCAT('%', :tuKhoa, '%')) OR " +
-           "(d.email IS NOT NULL AND LOWER(d.email) LIKE LOWER(CONCAT('%', :tuKhoa, '%')))")
+           "(d.email IS NOT NULL AND LOWER(d.email) LIKE LOWER(CONCAT('%', :tuKhoa, '%'))) " +
+           "ORDER BY d.id DESC")
     List<DocGia> timKiemTatCa(@Param("tuKhoa") String tuKhoa);
+
+    @Query("SELECT d FROM DocGia d ORDER BY d.id DESC")
+    List<DocGia> findAllOrderByIdDesc();
 }
