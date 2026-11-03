@@ -2,6 +2,7 @@ package com.example.demoChuong.repository;
 
 import com.example.demoChuong.entity.Sach;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,4 +11,7 @@ import java.util.List;
 public interface SachRepository extends JpaRepository<Sach, Long> {
 
     List<Sach> findByTenSachContainingIgnoreCase(String tuKhoa);
+
+    @Query("SELECT s FROM Sach s ORDER BY s.id DESC")
+    List<Sach> findAllOrderByIdDesc();
 }

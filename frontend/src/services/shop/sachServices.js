@@ -39,7 +39,7 @@ async function getSach({ q = "", danhMucId = "", sort = "moi" } = {}) {
                 : Array.isArray(res.data?.content)
                     ? res.data.content
                     : [];
-        return data.map((s) => ({
+        const list = data.map((s) => ({
             ...s,
             ten_sach: s.tenSach || s.ten_sach || "Sách thư viện",
             tenSach: s.tenSach || s.ten_sach || "Sách thư viện",
@@ -56,6 +56,16 @@ async function getSach({ q = "", danhMucId = "", sort = "moi" } = {}) {
             trang_thai: s.trangThai || s.trang_thai || "DANG_LUU_HANH",
             trangThai: s.trangThai || s.trang_thai || "DANG_LUU_HANH",
         }));
+
+        if (!sort || sort === "moi") {
+            list.sort((a, b) => (b.id || 0) - (a.id || 0));
+        } else if (sort === "ten") {
+            list.sort((a, b) => (a.ten_sach || "").localeCompare(b.ten_sach || "", "vi"));
+        } else if (sort === "nam") {
+            list.sort((a, b) => (b.nam_xuat_ban || 0) - (a.nam_xuat_ban || 0));
+        }
+
+        return list;
     } catch (err) {
         console.error("Lỗi getSach:", err);
         return sachMau;

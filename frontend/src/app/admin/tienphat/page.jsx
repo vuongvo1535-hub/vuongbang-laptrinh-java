@@ -88,7 +88,9 @@ export default function TienPhatAdminPage() {
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
-                setDsPhat(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data) ? data : [];
+                list.sort((a, b) => (b.id || 0) - (a.id || 0));
+                setDsPhat(list);
             }
         } catch (err) {
             console.error("Lỗi tải tiền phạt:", err);

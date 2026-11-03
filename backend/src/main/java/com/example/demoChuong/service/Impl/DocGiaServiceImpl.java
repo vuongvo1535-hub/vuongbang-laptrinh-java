@@ -24,7 +24,7 @@ public class DocGiaServiceImpl implements DocGiaService {
 
     @Override
     public List<DocGiaDTO> layTatCa() {
-        return repository.findAll().stream().map(mapper::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(mapper::toDTO).toList();
     }
 
     @Override

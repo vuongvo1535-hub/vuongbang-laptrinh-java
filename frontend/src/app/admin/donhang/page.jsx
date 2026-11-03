@@ -61,6 +61,12 @@ export default function PhieuMuonAdminPage() {
             if (locTrangThai) {
                 ds = ds.filter((x) => x.trangThai === locTrangThai || x.trang_thai === locTrangThai);
             }
+            ds.sort((a, b) => {
+                const timeA = a.ngayMuon || a.ngay_tao ? new Date(a.ngayMuon || a.ngay_tao).getTime() : 0;
+                const timeB = b.ngayMuon || b.ngay_tao ? new Date(b.ngayMuon || b.ngay_tao).getTime() : 0;
+                if (timeB !== timeA) return timeB - timeA;
+                return (b.id || 0) - (a.id || 0);
+            });
             setDanhSach(ds);
             setTongTrang(res.last_page || 1);
         } catch (err) {

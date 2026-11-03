@@ -42,6 +42,8 @@ export async function getDanhMucs(page = 1, perPage = 15) {
             const data = await response.json();
             const rawList = Array.isArray(data) ? data : (data.data || []);
             const formatted = rawList.map(chuanHoaDanhMuc).filter(Boolean);
+            // Danh mục mới tạo lên đầu
+            formatted.sort((a, b) => (b.id || 0) - (a.id || 0));
             if (formatted.length > 0) {
                 const total = formatted.length;
                 const lastPage = Math.max(1, Math.ceil(total / perPage));

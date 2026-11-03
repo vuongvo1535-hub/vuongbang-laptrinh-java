@@ -21,7 +21,7 @@ public class DanhMucServiceImpl implements DanhMucService {
 
     @Override
     public List<DanhMucDTO> layTatCa() {
-        return repository.findAll().stream().map(this::toDTO).toList();
+        return repository.findAllOrderByIdDesc().stream().map(this::toDTO).toList();
     }
 
     @Override
