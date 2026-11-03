@@ -11,5 +11,7 @@ public record TienPhatDTO(
         BigDecimal soTien,
         LocalDateTime ngayLap,
         String trangThai,
-        String ghiChu
+        String ghiChu,
+        String phuongThuc,
+        LocalDateTime ngayThanhToan
 ) {}

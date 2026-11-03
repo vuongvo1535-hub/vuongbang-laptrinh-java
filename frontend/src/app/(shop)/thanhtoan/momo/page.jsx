@@ -105,7 +105,7 @@ function MoMoPaymentContent() {
 
         setDangXuLy(true);
         setLoi("");
-        setBuocXuLy("1. Đang kết nối đến cổng MoMo Sandbox...");
+        setBuocXuLy("1. Đang kết nối cổng MoMo...");
 
         try {
             await new Promise((r) => setTimeout(r, 600));
@@ -173,7 +173,7 @@ function MoMoPaymentContent() {
                     <FiArrowLeft size={16} /> Quay lại Phiếu mượn
                 </Link>
                 <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    <FiShield size={13} /> Cổng MoMo Sandbox Demo (Hỗ trợ gửi Gmail thật)
+                    <FiShield size={13} /> Cổng Thanh Toán MoMo (Hỗ trợ gửi Gmail thật)
                 </div>
             </div>
 
@@ -311,7 +311,7 @@ function MoMoPaymentContent() {
                             {/* Mã giao dịch giả lập */}
                             <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200 text-xs">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="font-bold text-purple-900">Mã giao dịch MoMo giả lập:</span>
+                                    <span className="font-bold text-purple-900">Mã giao dịch MoMo:</span>
                                     <button
                                         type="button"
                                         onClick={() => setMaGiaoDich(sinhMaGiaoDichMoi())}

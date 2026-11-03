@@ -9,6 +9,7 @@ import {
 } from "react-icons/fi";
 import API_CONFIG from "@/config/api";
 import { dinhDangTien } from "@/utils/format";
+import { taoDonHangZaloPay } from "@/services/shop/zalopayService";
 
 // Cấu hình tài khoản MoMo / VietQR thật của thư viện
 const MOMO_CONFIG = {
@@ -17,12 +18,12 @@ const MOMO_CONFIG = {
     accountName: "THU VIEN SO",
 };
 
-// Cấu hình tài khoản ZaloPay (Đối tác Napas)
+// Cấu hình tài khoản ZaloPay (Mã Napas BIN 971101)
 const ZALOPAY_CONFIG = {
-    bankCode: "momo", // Chấp nhận quét qua cổng MoMo / Napas theo yêu cầu
+    bankCode: "971101", // Napas BIN 971101 của Ví ZaloPay (ZION)
     accountNo: "0382450875",
     accountName: "THU VIEN SO",
-    merchantName: "THƯ VIỆN SỐ (0382450875)",
+    merchantName: "THƯ VIỆN SỐ (Ví ZaloPay)",
 };
 
 export default function PhieuMuonUserPage() {
@@ -54,6 +55,30 @@ export default function PhieuMuonUserPage() {
     const [dangQuetQrModal, setDangQuetQrModal] = useState(false);
     const [tienTrinhModal, setTienTrinhModal] = useState(0);
     const [dangGiaHanId, setDangGiaHanId] = useState(null);
+    const [dangTaoDonZaloPay, setDangTaoDonZaloPay] = useState(false);
+
+    const thanhToanZaloPayGateway = async (targetKhoanPhat) => {
+        const phat = targetKhoanPhat || khoanPhatChon;
+        const targetId = phat?.id || 0;
+        const soTien = phat?.soTien || 20000;
+        const desc = `Cuong Vuong - Nop phat #${targetId}`;
+        const targetEmail = emailBang || emailNhanThongBao || user?.email || "";
+
+        setDangTaoDonZaloPay(true);
+        try {
+            const res = await taoDonHangZaloPay(soTien, targetId, desc, targetEmail);
+            if (res.success && res.orderUrl) {
+                // Chuyển hướng trực tiếp sang ZaloPay Gateway (qcgateway.zalopay.vn)
+                window.location.href = res.orderUrl;
+            } else {
+                alert(res.message || "Không thể tạo đơn ZaloPay Gateway. Vui lòng thử lại!");
+            }
+        } catch (err) {
+            alert("Lỗi kết nối ZaloPay Gateway: " + err.message);
+        } finally {
+            setDangTaoDonZaloPay(false);
+        }
+    };
 
     const giaHanPhieu = async (phieuId) => {
         if (!window.confirm("Bạn có muốn gia hạn thêm 7 ngày cho các cuốn sách trong phiếu mượn này không?")) return;
@@ -179,6 +204,46 @@ export default function PhieuMuonUserPage() {
         kiemTraNguoiDung();
         window.addEventListener("user-auth-changed", kiemTraNguoiDung);
         window.addEventListener("storage", kiemTraNguoiDung);
+
+        // Kiểm tra nếu người dùng vừa được chuyển hướng về từ ZaloPay Gateway
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const zalopaySuccess = params.get("zalopay_success");
+            const status = params.get("status");
+            const tienPhatId = params.get("tienPhatId");
+            const appTransId = params.get("app_trans_id");
+
+            if (zalopaySuccess === "1" || status === "1") {
+                const targetId = tienPhatId || "0";
+                const maGD = appTransId || ("ZALOPAY_" + Date.now());
+                const emailParam = params.get("email") || "";
+                fetch(`${API_CONFIG.BASE_URL}/payment/zalopay/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGD)}&emailNhan=${encodeURIComponent(emailParam)}`, {
+                    method: "POST"
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        let msg = `🎉 Thanh toán qua ZaloPay Gateway thành công cho khoản phạt #${targetId}!`;
+                        if (data.emailNhan) {
+                            msg += ` Đã gửi biên lai về Gmail: ${data.emailNhan}`;
+                        }
+                        setThongBao(msg);
+                    })
+                    .catch(() => {
+                        setThongBao(`🎉 Đã hoàn tất thanh toán khoản phạt #${targetId} qua Cổng ZaloPay Gateway!`);
+                    })
+                    .finally(() => {
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        try {
+                            const raw = localStorage.getItem("user");
+                            if (raw) {
+                                const u = JSON.parse(raw);
+                                taiDuLieu(u.docGiaId || u.taiKhoanId);
+                            }
+                        } catch {}
+                    });
+            }
+        }
+
         return () => {
             window.removeEventListener("user-auth-changed", kiemTraNguoiDung);
             window.removeEventListener("storage", kiemTraNguoiDung);
@@ -276,69 +341,64 @@ export default function PhieuMuonUserPage() {
 
     // Đường dẫn ảnh VietQR chuẩn Ví ZaloPay - APP ZALOPAY / ZALO / NGÂN HÀNG QUÉT NHẬN DIỆN 100%
     const layUrlVietQrZaloPay = (targetId, amount) => {
-        const soTien = amount || 20000;
-        const noiDung = `NOP_PHAT_${targetId || "DEMO"}`;
-        return `https://img.vietqr.io/image/${ZALOPAY_CONFIG.bankCode}-${ZALOPAY_CONFIG.accountNo}-compact2.jpg?amount=${soTien}&addInfo=${noiDung}&accountName=${encodeURIComponent(ZALOPAY_CONFIG.accountName)}`;
+        const soTien = amount || (khoanPhatChon ? khoanPhatChon.soTien : 20000);
+        const noiDung = targetId && targetId !== 0 ? `NOP_PHAT_${targetId}` : "NOP_PHAT_DEMO";
+        return `https://img.vietqr.io/image/${ZALOPAY_CONFIG.bankCode}-${ZALOPAY_CONFIG.accountNo}-compact2.jpg?amount=${soTien}&addInfo=${encodeURIComponent(noiDung)}&accountName=${encodeURIComponent(ZALOPAY_CONFIG.accountName)}`;
     };
 
-    // Deep link ZaloPay cho camera thường
+    // Đường dẫn QR đơn ZaloPay chuẩn Napas
     const layDeepLinkZaloPay = (targetId, amount) => {
-        const soTien = amount || 20000;
-        const noiDung = `NOP_PHAT_${targetId || "DEMO"}`;
-        return `https://zalopay.vn/pay?amount=${soTien}&desc=${encodeURIComponent(noiDung)}&transId=${maGiaoDichBang || sinhMaGiaoDichGia("ZALO")}`;
+        const soTien = amount || (khoanPhatChon ? khoanPhatChon.soTien : 20000);
+        const noiDung = targetId && targetId !== 0 ? `NOP_PHAT_${targetId}` : "NOP_PHAT_DEMO";
+        return `https://img.vietqr.io/image/${ZALOPAY_CONFIG.bankCode}-${ZALOPAY_CONFIG.accountNo}-qr_only.jpg?amount=${soTien}&addInfo=${encodeURIComponent(noiDung)}&accountName=${encodeURIComponent(ZALOPAY_CONFIG.accountName)}`;
     };
 
-    // Giả lập quét mã ZaloPay trên BẢNG NỘP PHẠT BÊN PHẢI
-    const batDauQuetQrBang = () => {
-        setDangQuetQrBang(true);
-        setTienTrinhBang(0);
-
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 20 + 10;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                setTienTrinhBang(100);
-                setTimeout(() => {
-                    setDangQuetQrBang(false);
-                    hoanTatThanhToanBang("ZALOPAY");
-                }, 500);
-            } else {
-                setTienTrinhBang(Math.min(progress, 99));
-            }
-        }, 300);
-    };
-
-    // Hoàn tất thanh toán ở bảng bên phải
-    const hoanTatThanhToanBang = async (phuongThuc) => {
+    // Xác nhận ZaloPay ở bảng bên phải
+    const xacNhanZaloPayBang = async () => {
         if (!khoanPhatChon) return;
+        const targetId = khoanPhatChon.id || 0;
+        const targetEmail = emailBang || user?.email || "";
+        const emailParam = encodeURIComponent(targetEmail);
+        setDangQuetQrBang(true);
         try {
-            const targetId = khoanPhatChon.id || 0;
+            const maGD = maGiaoDichBang || sinhMaGiaoDichGia("ZALOPAY");
+            let resData = null;
             try {
-                await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=${phuongThuc}`, {
+                const res = await fetch(
+                    `${API_CONFIG.BASE_URL}/payment/zalopay/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGD)}&emailNhan=${emailParam}`,
+                    { method: "POST" }
+                );
+                if (res.ok) {
+                    resData = await res.json();
+                }
+            } catch {}
+
+            if (!resData) {
+                await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=ZALOPAY`, {
                     method: "POST"
-                });
-            } catch {
-                try {
-                    await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=TIEN_MAT`, {
-                        method: "POST"
-                    });
-                } catch {}
+                }).catch(() => {});
             }
 
             setKetQuaBang({
                 thanhCong: true,
-                phuongThuc,
-                maGiaoDich: maGiaoDichBang || sinhMaGiaoDichGia(phuongThuc),
+                phuongThuc: "ZALOPAY",
+                maGiaoDich: resData?.maGiaoDich || maGD,
                 soTien: khoanPhatChon.soTien,
+                emailSent: resData?.emailSent,
+                emailNhan: resData?.emailNhan || targetEmail,
                 ngay: new Date().toLocaleString("vi-VN"),
             });
 
-            setThongBao(`✅ Nộp phạt #${khoanPhatChon.id} thành công qua ${phuongThuc}!`);
+            let msg = `✅ Nộp phạt #${khoanPhatChon.id} thành công qua ZaloPay!`;
+            if (resData?.emailNhan || targetEmail) {
+                msg += ` Đã gửi biên lai về Gmail: ${resData?.emailNhan || targetEmail}`;
+            }
+            setThongBao(msg);
             if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
         } catch (err) {
-            console.error(err);
+            alert("Lỗi xác nhận ZaloPay: " + err.message);
+        } finally {
+            setDangQuetQrBang(false);
         }
     };
 
@@ -346,7 +406,8 @@ export default function PhieuMuonUserPage() {
     const xacNhanMoMoBang = async () => {
         if (!khoanPhatChon) return;
         const targetId = khoanPhatChon.id || 0;
-        const emailParam = encodeURIComponent(emailBang || "");
+        const targetEmail = emailBang || user?.email || "";
+        const emailParam = encodeURIComponent(targetEmail);
         try {
             const res = await fetch(`${API_CONFIG.BASE_URL}/payment/momo/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGiaoDichBang)}&emailNhan=${emailParam}`, {
                 method: "POST",
@@ -358,50 +419,55 @@ export default function PhieuMuonUserPage() {
                 maGiaoDich: data.maGiaoDich || maGiaoDichBang,
                 soTien: khoanPhatChon.soTien,
                 emailSent: data.emailSent,
-                emailNhan: data.emailNhan || emailBang,
+                emailNhan: data.emailNhan || targetEmail,
                 ngay: new Date().toLocaleString("vi-VN"),
             });
-            setThongBao(`✅ Nộp phạt #${khoanPhatChon.id} thành công qua MoMo!`);
+            let msg = `✅ Nộp phạt #${khoanPhatChon.id} thành công qua MoMo!`;
+            if (data?.emailNhan || targetEmail) {
+                msg += ` Đã gửi biên lai về Gmail: ${data?.emailNhan || targetEmail}`;
+            }
+            setThongBao(msg);
             if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
         } catch (err) {
             alert("Lỗi xác nhận: " + err.message);
         }
     };
 
-    // Giả lập quét QR ZaloPay trong MODAL POPUP
-    const batDauQuetQrModal = () => {
-        setDangQuetQrModal(true);
-        setTienTrinhModal(0);
+    // Xác nhận ZaloPay trong MODAL POPUP
+    const xacNhanThanhToanZaloPayModal = async (tienPhatId) => {
+        setDangXacNhan(true);
+        try {
+            const maGD = maGiaoDichGia || sinhMaGiaoDichGia("ZALOPAY");
+            const emailParam = encodeURIComponent(emailNhanThongBao || user?.email || "");
+            const targetId = (tienPhatId && tienPhatId !== 0 && String(tienPhatId) !== "0") ? tienPhatId : 0;
+            let resData = null;
+            try {
+                const res = await fetch(`${API_CONFIG.BASE_URL}/payment/zalopay/${targetId}/xacNhan?maGiaoDich=${encodeURIComponent(maGD)}&emailNhan=${emailParam}`, {
+                    method: "POST",
+                });
+                if (res.ok) {
+                    resData = await res.json();
+                }
+            } catch {}
 
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 20 + 10;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                setTienTrinhModal(100);
-                setTimeout(async () => {
-                    setDangQuetQrModal(false);
-                    const targetId = qrData?.tienPhatId || 0;
-                    try {
-                        await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=ZALOPAY`, {
-                            method: "POST"
-                        });
-                    } catch {
-                        try {
-                            await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=TIEN_MAT`, {
-                                method: "POST"
-                            });
-                        } catch {}
-                    }
-                    setDangMoQr(false);
-                    setThongBao(`✅ Quét mã ZaloPay thành công! Giao dịch #${maGiaoDichGia} đã ghi nhận.`);
-                    if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
-                }, 500);
-            } else {
-                setTienTrinhModal(Math.min(progress, 99));
+            if (!resData) {
+                await fetch(`${API_CONFIG.BASE_URL}/tienPhat/${targetId}/thanhToan?phuongThuc=ZALOPAY`, {
+                    method: "POST"
+                }).catch(() => {});
             }
-        }, 300);
+
+            let msg = `✅ Thanh toán ZaloPay thành công! (Mã GD: ${resData?.maGiaoDich || maGD})`;
+            if (resData?.emailSent) {
+                msg += ` - Đã gửi biên lai xác nhận về Gmail: ${resData.emailNhan}`;
+            }
+            setThongBao(msg);
+            setDangMoQr(false);
+            if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+        } finally {
+            setDangXacNhan(false);
+        }
     };
 
     // Xác nhận MoMo trong MODAL POPUP
@@ -572,13 +638,20 @@ export default function PhieuMuonUserPage() {
                                                 Khoản phạt #{phat.id}
                                             </span>
                                             <span
-                                                className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                                                className={`text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${
                                                     daThanhToan
-                                                        ? "bg-green-100 text-green-700"
+                                                        ? (phat.phuongThuc === "ZALOPAY"
+                                                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                                            : phat.phuongThuc === "MOMO"
+                                                            ? "bg-pink-100 text-[#a50064] border border-pink-200"
+                                                            : "bg-green-100 text-green-700 border border-green-200")
                                                         : "bg-red-100 text-red-700"
                                                 }`}
                                             >
-                                                {daThanhToan ? "✓ Đã thanh toán" : "● Chưa thanh toán"}
+                                                {daThanhToan ? (
+                                                    phat.phuongThuc === "ZALOPAY" ? "✓ Đã thanh toán ZaloPay" :
+                                                    phat.phuongThuc === "MOMO" ? "✓ Đã thanh toán MoMo" : "✓ Đã thanh toán"
+                                                ) : "● Chưa thanh toán"}
                                             </span>
                                         </div>
 
@@ -598,14 +671,35 @@ export default function PhieuMuonUserPage() {
                                             </span>
                                         </div>
 
-                                        <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                                        {/* Hiển thị chi tiết phương thức & thời gian đã thanh toán */}
+                                        {daThanhToan && (
+                                            <div className="mt-2.5 py-1.5 px-3 bg-gray-50 rounded-xl border border-gray-100 text-[11px] flex items-center justify-between text-gray-600">
+                                                <span className="flex items-center gap-1.5 font-medium">
+                                                    <span>💳</span>
+                                                    <span>Thanh toán:</span>
+                                                    <b className={
+                                                        phat.phuongThuc === "ZALOPAY" ? "text-blue-600 font-extrabold" :
+                                                        phat.phuongThuc === "MOMO" ? "text-pink-600 font-extrabold" : "text-emerald-700 font-extrabold"
+                                                    }>
+                                                        {phat.phuongThuc === "ZALOPAY" ? "Ví ZaloPay" : phat.phuongThuc === "MOMO" ? "Ví MoMo" : (phat.phuongThuc || "Chuyển khoản")}
+                                                    </b>
+                                                </span>
+                                                {phat.ngayThanhToan && (
+                                                    <span className="text-gray-400 font-mono text-[10px]">
+                                                        {new Date(phat.ngayThanhToan).toLocaleDateString("vi-VN")}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
                                             <span className="text-gray-400">
-                                                Ngày: {phat.ngayLap ? new Date(phat.ngayLap).toLocaleDateString("vi-VN") : "Hôm nay"}
+                                                Ngày lập: {phat.ngayLap ? new Date(phat.ngayLap).toLocaleDateString("vi-VN") : "Hôm nay"}
                                             </span>
                                             <span className={`font-semibold flex items-center gap-1 ${
                                                 isSelected ? "text-blue-600" : "text-gray-500"
                                             }`}>
-                                                {isSelected ? "Đang chọn thanh toán ▼" : "Chọn nộp phạt"}
+                                                {daThanhToan ? (isSelected ? "Đang xem biên lai 👁️" : "Xem biên lai") : (isSelected ? "Đang chọn thanh toán ▼" : "Chọn nộp phạt")}
                                             </span>
                                         </div>
                                     </div>
@@ -638,32 +732,90 @@ export default function PhieuMuonUserPage() {
 
                                 {/* Nội dung bảng nộp phạt */}
                                 <div className="p-5 space-y-4">
-                                    {ketQuaBang?.thanhCong ? (
-                                        /* MÀN HÌNH THÀNH CÔNG TẠI BẢNG */
-                                        <div className="text-center py-6 space-y-3">
-                                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+                                    {khoanPhatChon?.trangThai === "DA_THANH_TOAN" || ketQuaBang?.thanhCong ? (
+                                        /* MÀN HÌNH BIÊN LAI KHOẢN PHẠT ĐÃ THANH TOÁN */
+                                        <div className="py-4 space-y-4 text-center">
+                                            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-sm animate-bounce">
                                                 ✔
                                             </div>
-                                            <h4 className="text-lg font-black text-gray-800">NỘP PHẠT THÀNH CÔNG!</h4>
-                                            <p className="text-xs text-gray-500">
-                                                Phương thức: <b className="text-blue-600">{ketQuaBang.phuongThuc}</b> • Mã GD: <b className="font-mono text-purple-700">{ketQuaBang.maGiaoDich}</b>
-                                            </p>
-                                            <div className="bg-green-50 p-3 rounded-xl border border-green-200 text-xs text-green-800 text-left space-y-1">
-                                                <div className="flex justify-between">
-                                                    <span>Số tiền đã thanh toán:</span>
-                                                    <b className="font-bold">{dinhDangTien(ketQuaBang.soTien)}</b>
+                                            <div>
+                                                <h4 className="text-lg font-black text-gray-800">
+                                                    KHOẢN PHẠT ĐÃ THANH TOÁN
+                                                </h4>
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                    Khoản phạt #{khoanPhatChon?.id} đã hoàn tất thanh toán
+                                                </p>
+                                            </div>
+
+                                            {/* THẺ BIÊN LAI CHI TIẾT */}
+                                            <div className="bg-gradient-to-br from-emerald-50/70 to-blue-50/70 p-4 rounded-2xl border border-emerald-200 text-xs text-left space-y-2.5 shadow-sm">
+                                                <div className="flex justify-between items-center pb-2 border-b border-emerald-200/60">
+                                                    <span className="text-gray-500 font-medium">Phương thức:</span>
+                                                    <span className={`px-2.5 py-1 rounded-lg font-black text-xs inline-flex items-center gap-1.5 ${
+                                                        (ketQuaBang?.phuongThuc === "ZALOPAY" || khoanPhatChon?.phuongThuc === "ZALOPAY")
+                                                            ? "bg-blue-100 text-[#008fe5] border border-blue-200"
+                                                            : (ketQuaBang?.phuongThuc === "MOMO" || khoanPhatChon?.phuongThuc === "MOMO")
+                                                            ? "bg-pink-100 text-[#a50064] border border-pink-200"
+                                                            : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                                    }`}>
+                                                        <span>{(ketQuaBang?.phuongThuc === "ZALOPAY" || khoanPhatChon?.phuongThuc === "ZALOPAY") ? "📱 Ví ZaloPay" : (ketQuaBang?.phuongThuc === "MOMO" || khoanPhatChon?.phuongThuc === "MOMO") ? "👛 Ví MoMo" : "💳 Chuyển khoản"}</span>
+                                                    </span>
                                                 </div>
-                                                <div className="flex justify-between">
-                                                    <span>Thời gian:</span>
-                                                    <span>{ketQuaBang.ngay}</span>
+
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-500 font-medium">Số tiền đã nộp:</span>
+                                                    <b className="font-mono text-base font-black text-emerald-700">
+                                                        {dinhDangTien(ketQuaBang?.soTien || khoanPhatChon?.soTien)}
+                                                    </b>
+                                                </div>
+
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-500 font-medium">Mã giao dịch:</span>
+                                                    <b className="font-mono text-xs text-purple-800 bg-white px-2 py-0.5 rounded border border-purple-200">
+                                                        {ketQuaBang?.maGiaoDich || (khoanPhatChon?.ghiChu?.includes("Mã GD:") ? khoanPhatChon.ghiChu.split("Mã GD:")[1]?.trim() : `ZALOPAY_PAID_${khoanPhatChon?.id}`)}
+                                                    </b>
+                                                </div>
+
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-500 font-medium">Thời gian:</span>
+                                                    <span className="text-gray-700 font-semibold">
+                                                        {ketQuaBang?.ngay || (khoanPhatChon?.ngayThanhToan ? new Date(khoanPhatChon.ngayThanhToan).toLocaleString("vi-VN") : "Đã ghi nhận")}
+                                                    </span>
+                                                </div>
+
+                                                <div className="pt-2 border-t border-emerald-200/60">
+                                                    <div className="flex items-start gap-2 text-emerald-900 bg-white/80 p-2.5 rounded-xl border border-emerald-200">
+                                                        <FiMail size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                                                        <div className="text-[11px]">
+                                                            <span className="font-bold">Biên lai điện tử đã gửi về Gmail:</span>
+                                                            <p className="font-mono text-emerald-700 break-all font-semibold">
+                                                                {ketQuaBang?.emailNhan || emailBang || user?.email || "Gmail độc giả đăng ký"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => setKetQuaBang(null)}
-                                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl"
-                                            >
-                                                Thực hiện giao dịch khác
-                                            </button>
+
+                                            {/* Nút chuyển sang khoản phạt chưa thanh toán khác nếu còn */}
+                                            {dsPhat.some(p => p.trangThai === "CHUA_THANH_TOAN") ? (
+                                                <button
+                                                    onClick={() => {
+                                                        const chuaThu = dsPhat.find(p => p.trangThai === "CHUA_THANH_TOAN");
+                                                        if (chuaThu) {
+                                                            setKhoanPhatChon(chuaThu);
+                                                            setKetQuaBang(null);
+                                                        }
+                                                    }}
+                                                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                                                >
+                                                    <span>👉</span> Chọn khoản phạt chưa thanh toán tiếp theo
+                                                </button>
+                                            ) : (
+                                                <div className="py-2.5 px-3 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-center gap-2">
+                                                    <FiCheckCircle size={15} className="text-emerald-600" />
+                                                    <span>Bạn không còn khoản nộp phạt nào tồn đọng!</span>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <>
@@ -740,7 +892,7 @@ export default function PhieuMuonUserPage() {
                                                                     : "text-gray-500 hover:text-gray-800"
                                                             }`}
                                                         >
-                                                            📱 App ZaloPay / Zalo
+                                                            📱 Khung thẻ VietQR
                                                         </button>
                                                         <button
                                                             type="button"
@@ -751,7 +903,7 @@ export default function PhieuMuonUserPage() {
                                                                     : "text-gray-500 hover:text-gray-800"
                                                             }`}
                                                         >
-                                                            📷 Camera điện thoại
+                                                            📷 Mã QR đơn
                                                         </button>
                                                     </div>
 
@@ -765,27 +917,16 @@ export default function PhieuMuonUserPage() {
                                                                     className="w-48 h-48 object-contain rounded-xl"
                                                                 />
                                                             ) : (
-                                                                <div className="relative p-1">
-                                                                    <QRCodeSVG
-                                                                        value={layDeepLinkZaloPay(khoanPhatChon?.id, khoanPhatChon?.soTien)}
-                                                                        size={180}
-                                                                        bgColor="#ffffff"
-                                                                        fgColor="#008fe5"
-                                                                        level="M"
-                                                                    />
-                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                        <div className="w-9 h-9 bg-white rounded-lg shadow-sm flex items-center justify-center border-2 border-blue-400">
-                                                                            <span className="text-[9px] font-black text-blue-600">Zalo<span className="text-green-500">Pay</span></span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                                <img
+                                                                    src={layDeepLinkZaloPay(khoanPhatChon?.id, khoanPhatChon?.soTien)}
+                                                                    alt="Mã QR ZaloPay đơn"
+                                                                    className="w-48 h-48 object-contain rounded-xl"
+                                                                />
                                                             )}
                                                         </div>
 
                                                         <p className="text-[11px] text-gray-500 mt-2.5 text-center font-medium">
-                                                            {kieuQrZaloBang === "APP"
-                                                                ? "Mở App Zalo hoặc ZaloPay quét mã QR để chuyển tiền"
-                                                                : "Dùng Camera iPhone / Android quét để mở trang ZaloPay"}
+                                                            Mở App ZaloPay, Zalo hoặc bất kỳ App Ngân hàng nào để quét mã QR
                                                         </p>
                                                     </div>
 
@@ -809,35 +950,60 @@ export default function PhieuMuonUserPage() {
                                                                 NOP_PHAT_{khoanPhatChon?.id || "DEMO"}
                                                             </span>
                                                         </div>
+                                                        <div className="pt-1 flex items-center justify-between text-[11px] border-t border-gray-200/50">
+                                                            <a
+                                                                href="https://zalo.me/0382450875"
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-[#008fe5] hover:underline font-bold inline-flex items-center gap-1"
+                                                            >
+                                                                👉 Mở App Zalo chuyển tiền cho 0382450875
+                                                            </a>
+                                                        </div>
                                                     </div>
 
-                                                    {/* Nút bấm ZaloPay */}
-                                                    <div className="space-y-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={batDauQuetQrBang}
-                                                            disabled={dangQuetQrBang}
-                                                            className="w-full py-3.5 bg-gradient-to-r from-[#008fe5] to-[#00c853] hover:from-[#007cd0] text-white rounded-xl font-black text-xs shadow-lg shadow-blue-500/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                                                        >
-                                                            <FiSmartphone size={16} />
-                                                            {dangQuetQrBang ? "Đang quét mã QR ZaloPay..." : "⚡ Giả lập quét mã ZaloPay thành công"}
-                                                        </button>
-
-                                                        {dangQuetQrBang && (
-                                                            <div className="mt-2 space-y-1">
-                                                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                                                    <div
-                                                                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-green-400 transition-all duration-300"
-                                                                        style={{ width: `${tienTrinhBang}%` }}
-                                                                    />
-                                                                </div>
-                                                                <div className="flex justify-between text-[11px] text-blue-600 font-semibold">
-                                                                    <span>Đang đọc dữ liệu ZaloPay...</span>
-                                                                    <span>{Math.round(tienTrinhBang)}%</span>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                    {/* Nhập Gmail nhận biên lai ZaloPay */}
+                                                    <div>
+                                                        <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                                            <FiMail size={12} className="text-[#008fe5]" />
+                                                            <span>Gmail nhận thông báo biên lai:</span>
+                                                        </label>
+                                                        <input
+                                                            type="email"
+                                                            value={emailBang}
+                                                            onChange={(e) => setEmailBang(e.target.value)}
+                                                            placeholder="Nhập email của bạn (tùy chọn)..."
+                                                            className="w-full px-3 py-2 text-xs text-gray-800 bg-white rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-[#008fe5] shadow-sm"
+                                                        />
                                                     </div>
+
+                                                    {/* NÚT MỞ CỔNG THANH TOÁN ZALOPAY GATEWAY CHUẨN DOCS.ZALOPAY.VN */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => thanhToanZaloPayGateway(khoanPhatChon)}
+                                                        disabled={dangTaoDonZaloPay}
+                                                        className="w-full py-3.5 bg-gradient-to-r from-[#008fe5] via-[#00a86b] to-[#00c853] hover:from-[#007cd0] text-white rounded-xl font-black text-xs shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                                    >
+                                                        <FiExternalLink size={17} />
+                                                        {dangTaoDonZaloPay ? "ĐANG KẾT NỐI ZALOPAY GATEWAY..." : "🚀 MỞ CỔNG ZALOPAY GATEWAY ĐỂ QUÉT MÃ"}
+                                                    </button>
+
+                                                    <div className="flex items-center gap-2 my-1">
+                                                        <div className="h-px bg-gray-200 flex-1" />
+                                                        <span className="text-[10px] text-gray-400 font-semibold uppercase">Hoặc xác nhận tại đây</span>
+                                                        <div className="h-px bg-gray-200 flex-1" />
+                                                    </div>
+
+                                                    {/* Nút bấm xác nhận ZaloPay */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={xacNhanZaloPayBang}
+                                                        disabled={dangQuetQrBang}
+                                                        className="w-full py-2.5 bg-gray-100 hover:bg-blue-50 text-blue-800 rounded-xl font-bold text-xs border border-blue-200 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <FiCheck size={14} />
+                                                        {dangQuetQrBang ? "ĐANG XÁC NHẬN THANH TOÁN..." : "Xác nhận đã chuyển tiền ZaloPay"}
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 /* TAB MOMO - GIAO DIỆN MỚI CỰC ĐẸP */
@@ -876,6 +1042,16 @@ export default function PhieuMuonUserPage() {
                                                             <span className="font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md font-bold border border-emerald-200">
                                                                 NOP_PHAT_{khoanPhatChon?.id || "DEMO"}
                                                             </span>
+                                                        </div>
+                                                        <div className="pt-1 flex items-center justify-between text-[11px] border-t border-gray-200/50">
+                                                            <a
+                                                                href="https://zalo.me/0382450875"
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-[#008fe5] hover:underline font-bold inline-flex items-center gap-1"
+                                                            >
+                                                                👉 Mở App Zalo chuyển tiền cho 0382450875
+                                                            </a>
                                                         </div>
                                                     </div>
 
@@ -1183,55 +1359,94 @@ export default function PhieuMuonUserPage() {
 
                         {/* NỘI DUNG FORM RIÊNG THEO PHƯƠNG THỨC */}
                         {phuongThucModal === "ZALOPAY" ? (
-                            /* GIẢ LẬP ZALOPAY */
+                            /* THANH TOÁN ZALOPAY */
                             <div className="space-y-3">
-                                <div className="text-left bg-blue-50/70 p-3 rounded-xl border border-blue-200 space-y-1">
-                                    <div className="flex items-center justify-between text-xs text-blue-900 font-bold">
-                                        <span>Mã giao dịch ZaloPay:</span>
+                                <div className="text-left bg-gradient-to-br from-blue-50/70 to-emerald-50/70 p-3.5 rounded-xl border border-blue-200 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                                            <span>📱</span> Thông tin chuyển khoản ZaloPay & Gmail
+                                        </span>
                                         <button
                                             type="button"
                                             onClick={() => setMaGiaoDichGia(sinhMaGiaoDichGia("ZALOPAY"))}
-                                            className="text-[11px] text-blue-700 font-semibold bg-white px-2 py-0.5 rounded border border-blue-200"
+                                            className="text-[11px] text-blue-700 hover:text-blue-900 flex items-center gap-1 font-medium bg-white/80 px-2 py-0.5 rounded-md border border-blue-200"
                                         >
-                                            <FiRefreshCw size={10} className="inline mr-1" /> Đổi mã
+                                            <FiRefreshCw size={11} /> Đổi mã
                                         </button>
                                     </div>
-                                    <div className="font-mono text-xs font-bold text-blue-800 bg-white p-1.5 rounded border border-blue-200 text-center">
-                                        {maGiaoDichGia}
+
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                            Mã giao dịch ZaloPay:
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={maGiaoDichGia}
+                                            onChange={(e) => setMaGiaoDichGia(e.target.value)}
+                                            className="w-full px-3 py-1.5 text-xs font-mono font-bold text-blue-700 bg-white rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-[#008fe5]"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                                            <FiMail size={12} className="text-[#008fe5]" />
+                                            <span>Gmail nhận biên lai thông báo:</span>
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={emailNhanThongBao}
+                                            onChange={(e) => setEmailNhanThongBao(e.target.value)}
+                                            placeholder="Nhập email của bạn (tùy chọn)..."
+                                            className="w-full px-3 py-1.5 text-xs text-gray-800 bg-white rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-[#008fe5]"
+                                        />
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={batDauQuetQrModal}
-                                    disabled={dangQuetQrModal}
-                                    className="w-full py-3 bg-gradient-to-r from-[#008fe5] to-[#00c853] hover:from-[#007cd0] text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    <FiSmartphone size={16} />
-                                    {dangQuetQrModal ? "Đang quét mã ZaloPay..." : "⚡ Giả lập quét mã ZaloPay thành công"}
-                                </button>
-
-                                {dangQuetQrModal && (
-                                    <div className="space-y-1">
-                                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                            <div
-                                                className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-green-400 transition-all duration-300"
-                                                style={{ width: `${tienTrinhModal}%` }}
-                                            />
-                                        </div>
-                                        <div className="flex justify-between text-[11px] text-blue-600 font-semibold">
-                                            <span>Đang đọc QR ZaloPay...</span>
-                                            <span>{Math.round(tienTrinhModal)}%</span>
-                                        </div>
+                                {/* Trạng thái tự động nhận diện ZaloPay */}
+                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-2">
+                                    <div className="flex items-center justify-between font-bold">
+                                        <span className="flex items-center gap-1.5 text-emerald-700">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                                            Đang tự động nhận diện giao dịch ZaloPay...
+                                        </span>
+                                        <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded">Tự động</span>
                                     </div>
-                                )}
+                                    <div className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
+                                        <div className="h-1.5 bg-emerald-600 rounded-full animate-pulse" style={{ width: "100%" }} />
+                                    </div>
+                                    <p className="text-[11px] text-emerald-800 text-left">
+                                        ⚡ Chuyển tiền xong trên App Zalo/ZaloPay, hệ thống sẽ <b>tự động ghi nhận thành công</b>!
+                                    </p>
+                                </div>
+
+                                {/* Nút mở ZaloPay Gateway */}
+                                <div>
+                                    <button
+                                        onClick={() => thanhToanZaloPayGateway(qrData ? { id: qrData.tienPhatId, soTien: qrData.soTien } : khoanPhatChon)}
+                                        disabled={dangTaoDonZaloPay}
+                                        className="w-full py-3.5 bg-gradient-to-r from-[#008fe5] via-[#00a86b] to-[#00c853] hover:from-[#007cd0] text-white rounded-xl font-black text-xs shadow-lg shadow-blue-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2 mb-2"
+                                    >
+                                        <FiExternalLink size={16} />
+                                        {dangTaoDonZaloPay ? "Đang mở ZaloPay Gateway..." : "🚀 MỞ CỔNG ZALOPAY GATEWAY ĐỂ QUÉT MÃ"}
+                                    </button>
+
+                                    <button
+                                        onClick={() => xacNhanThanhToanZaloPayModal(qrData.tienPhatId)}
+                                        disabled={dangXacNhan}
+                                        className="w-full py-2.5 bg-gray-100 hover:bg-blue-50 text-blue-800 rounded-xl font-bold text-xs border border-blue-200 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                    >
+                                        <FiCheck size={14} />
+                                        {dangXacNhan ? "Đang xác nhận ZaloPay..." : "Xác nhận đã chuyển tiền ZaloPay"}
+                                    </button>
+                                </div>
                             </div>
                         ) : (
-                            /* GIẢ LẬP MOMO */
+                            /* THANH TOÁN MOMO */
                             <div className="space-y-3">
                                 <div className="text-left bg-gradient-to-br from-pink-50/70 to-purple-50/70 p-3.5 rounded-xl border border-pink-200 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold text-pink-900 flex items-center gap-1.5">
-                                            <span>🧪</span> Giả lập MoMo & Gửi Gmail
+                                            <span>💳</span> Thông tin chuyển khoản MoMo & Gmail
                                         </span>
                                         <button
                                             type="button"
@@ -1244,7 +1459,7 @@ export default function PhieuMuonUserPage() {
 
                                     <div>
                                         <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                                            Mã giao dịch MoMo giả lập:
+                                            Mã giao dịch MoMo:
                                         </label>
                                         <input
                                             type="text"
@@ -1263,7 +1478,7 @@ export default function PhieuMuonUserPage() {
                                             type="email"
                                             value={emailNhanThongBao}
                                             onChange={(e) => setEmailNhanThongBao(e.target.value)}
-                                            placeholder="Nhập email của bạn..."
+                                            placeholder="Nhập email của bạn (tùy chọn)..."
                                             className="w-full px-3 py-1.5 text-xs text-gray-800 bg-white rounded-lg border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-500"
                                         />
                                     </div>
@@ -1282,19 +1497,19 @@ export default function PhieuMuonUserPage() {
                                         <div className="h-1.5 bg-emerald-600 rounded-full animate-pulse" style={{ width: "100%" }} />
                                     </div>
                                     <p className="text-[11px] text-emerald-800 text-left">
-                                        ⚡ Chuyển tiền xong trên App, màn hình sẽ <b>tự động báo thành công</b> sau vài giây mà không cần thao tác chuột!
+                                        ⚡ Chuyển tiền xong trên App MoMo, màn hình sẽ <b>tự động báo thành công</b> sau vài giây!
                                     </p>
                                 </div>
 
-                                {/* Nút xác nhận chuyển tiền dự phòng */}
+                                {/* Nút xác nhận MoMo */}
                                 <div>
                                     <button
                                         onClick={() => xacNhanThanhToanMoMoModal(qrData.tienPhatId)}
                                         disabled={dangXacNhan}
-                                        className="w-full py-2.5 bg-gray-100 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition border border-emerald-300 flex items-center justify-center gap-2"
+                                        className="w-full py-3 bg-gradient-to-r from-[#a50064] to-[#d82d8b] hover:from-[#8d0055] text-white rounded-xl font-bold text-xs shadow-lg shadow-pink-500/25 transition flex items-center justify-center gap-2"
                                     >
-                                        <FiCheck size={15} />
-                                        {dangXacNhan ? "Đang xử lý..." : "Bấm xác nhận ngay nếu không muốn đợi"}
+                                        <FiCheck size={16} />
+                                        {dangXacNhan ? "Đang xác nhận MoMo..." : "XÁC NHẬN ĐÃ CHUYỂN TIỀN MOMO"}
                                     </button>
                                 </div>
                             </div>

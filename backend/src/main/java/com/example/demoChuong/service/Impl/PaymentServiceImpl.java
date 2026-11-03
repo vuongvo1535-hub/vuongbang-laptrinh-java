@@ -1,6 +1,7 @@
 package com.example.demoChuong.service.Impl;
 
 import com.example.demoChuong.dto.MoMoPaymentDTO;
+import com.example.demoChuong.dto.ZaloPayPaymentDTO;
 import com.example.demoChuong.entity.ChiTietTienPhat;
 import com.example.demoChuong.entity.TienPhat;
 import com.example.demoChuong.exception.ResourceNotFoundException;
@@ -27,10 +28,15 @@ public class PaymentServiceImpl implements PaymentService {
     private final SachRepository sachRepository;
     private final EmailService emailService;
 
-    // Thông tin ví MoMo / Ngân hàng thư viện mặc định
+    // Thông tin ví MoMo
     private static final String SO_DIEN_THOAI_MOMO = "0382450875";
     private static final String TEN_NGUOI_NHAN = "THU VIEN SO";
     private static final String MA_NGAN_HANG = "momo"; // Ví MoMo chuẩn Napas VietQR (mã BIN 971025)
+
+    // Thông tin ví ZaloPay (Napas BIN 971101)
+    private static final String BIN_ZALOPAY = "971101"; // ZaloPay Napas BIN
+    private static final String SO_VI_ZALOPAY = "0382450875";
+    private static final String TEN_NGUOI_NHAN_ZALOPAY = "THU VIEN SO";
 
     public PaymentServiceImpl(
             TienPhatRepository tienPhatRepository,
@@ -56,6 +62,12 @@ public class PaymentServiceImpl implements PaymentService {
     public String taoMaGiaoDichGia() {
         long randomNum = (long) (Math.random() * 900000000L) + 100000000L;
         return "MOMO_DEMO_" + randomNum;
+    }
+
+    @Override
+    public String taoMaGiaoDichGiaZaloPay() {
+        long randomNum = (long) (Math.random() * 900000000L) + 100000000L;
+        return "ZALOPAY_" + randomNum;
     }
 
     @Override
@@ -89,7 +101,6 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal soTien = tp.getSoTien() != null ? tp.getSoTien() : BigDecimal.ZERO;
         String noiDung = "NOP_PHAT_" + tp.getId();
 
-        // Tạo đường dẫn ảnh QR Code động chuẩn VietQR / MoMo quét trực tiếp
         String qrUrl = String.format(
                 "https://img.vietqr.io/image/%s-%s-compact2.jpg?amount=%s&addInfo=%s&accountName=%s",
                 MA_NGAN_HANG,
@@ -113,16 +124,82 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public ZaloPayPaymentDTO taoMaThanhToanZaloPay(Long tienPhatId) {
+        if (tienPhatId == null || tienPhatId <= 0) {
+            BigDecimal soTienDemo = new BigDecimal("20000");
+            String noiDungDemo = "NOP_PHAT_DEMO";
+            String qrUrl = String.format(
+                    "https://img.vietqr.io/image/%s-%s-compact2.jpg?amount=%s&addInfo=%s&accountName=%s",
+                    BIN_ZALOPAY,
+                    SO_VI_ZALOPAY,
+                    soTienDemo.toPlainString(),
+                    noiDungDemo,
+                    TEN_NGUOI_NHAN_ZALOPAY.replace(" ", "%20")
+            );
+            return new ZaloPayPaymentDTO(
+                    0L,
+                    soTienDemo,
+                    noiDungDemo,
+                    qrUrl,
+                    SO_VI_ZALOPAY,
+                    TEN_NGUOI_NHAN_ZALOPAY,
+                    "Mã QR ZaloPay Demo quét mã và gửi thông báo qua Gmail."
+            );
+        }
+
+        TienPhat tp = tienPhatRepository.findById(tienPhatId)
+                .orElseThrow(() -> new ResourceNotFoundException("tiền phạt", tienPhatId));
+
+        BigDecimal soTien = tp.getSoTien() != null ? tp.getSoTien() : BigDecimal.ZERO;
+        String noiDung = "NOP_PHAT_" + tp.getId();
+
+        String qrUrl = String.format(
+                "https://img.vietqr.io/image/%s-%s-compact2.jpg?amount=%s&addInfo=%s&accountName=%s",
+                BIN_ZALOPAY,
+                SO_VI_ZALOPAY,
+                soTien.toPlainString(),
+                noiDung,
+                TEN_NGUOI_NHAN_ZALOPAY.replace(" ", "%20")
+        );
+
+        return new ZaloPayPaymentDTO(
+                tp.getId(),
+                soTien,
+                noiDung,
+                qrUrl,
+                SO_VI_ZALOPAY,
+                TEN_NGUOI_NHAN_ZALOPAY,
+                "DA_THANH_TOAN".equals(tp.getTrangThai())
+                        ? "Khoản tiền phạt này đã thanh toán trước đó. Bạn vẫn có thể quét mã để kiểm thử lại."
+                        : "Tạo mã thanh toán ZaloPay thành công. Quét mã QR bằng ứng dụng ZaloPay, Zalo hoặc Ngân hàng bất kỳ."
+        );
+    }
+
+    @Override
     @Transactional
     public Map<String, Object> xacNhanThanhToan(Long tienPhatId, String maGiaoDich, String emailNhan) {
+        return xuLyXacNhan(tienPhatId, maGiaoDich, emailNhan, "MOMO");
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> xacNhanThanhToanZaloPay(Long tienPhatId, String maGiaoDich, String emailNhan) {
+        return xuLyXacNhan(tienPhatId, maGiaoDich, emailNhan, "ZALOPAY");
+    }
+
+    private Map<String, Object> xuLyXacNhan(Long tienPhatId, String maGiaoDich, String emailNhan, String phuongThuc) {
+        boolean isZaloPay = "ZALOPAY".equalsIgnoreCase(phuongThuc);
+        String prefix = isZaloPay ? "ZALOPAY" : "MOMO";
+        String tenCổng = isZaloPay ? "ZaloPay" : "MoMo";
+
         String maGdThucTe = (maGiaoDich != null && !maGiaoDich.trim().isEmpty())
                 ? maGiaoDich.trim()
-                : taoMaGiaoDichGia();
+                : (isZaloPay ? taoMaGiaoDichGiaZaloPay() : taoMaGiaoDichGia());
         String emailGui = (emailNhan != null && !emailNhan.trim().isEmpty()) ? emailNhan.trim() : null;
 
         // Xử lý chế độ Demo (tienPhatId <= 0)
         if (tienPhatId == null || tienPhatId <= 0) {
-            BigDecimal soTienDemo = new BigDecimal("25000");
+            BigDecimal soTienDemo = isZaloPay ? new BigDecimal("20000") : new BigDecimal("25000");
             Map<String, Object> emailRes = null;
             if (emailGui != null && !emailGui.isEmpty()) {
                 emailRes = emailService.guiEmailThongBaoThanhToan(
@@ -131,7 +208,7 @@ public class PaymentServiceImpl implements PaymentService {
                         maGdThucTe,
                         soTienDemo,
                         "NOP_PHAT_DEMO",
-                        "Phạt trả sách trễ hạn (Thử nghiệm)",
+                        "Phạt trả sách trễ hạn (Thử nghiệm " + tenCổng + ")",
                         "Sách: Đắc Nhân Tâm (Bản Demo)"
                 );
             }
@@ -141,6 +218,7 @@ public class PaymentServiceImpl implements PaymentService {
             res.put("tienPhatId", 0L);
             res.put("soTien", soTienDemo);
             res.put("maGiaoDich", maGdThucTe);
+            res.put("phuongThuc", prefix);
             res.put("emailNhan", emailGui);
 
             boolean emailSent = emailRes != null && Boolean.TRUE.equals(emailRes.get("success"));
@@ -153,7 +231,7 @@ public class PaymentServiceImpl implements PaymentService {
             } else {
                 res.put("emailStatus", "Chưa nhập địa chỉ email nhận thông báo.");
             }
-            res.put("message", "Giả lập thanh toán MoMo Demo thành công! " + (emailSent ? "Đã gửi biên lai về Gmail." : ""));
+            res.put("message", "Giả lập thanh toán " + tenCổng + " Demo thành công! " + (emailSent ? "Đã gửi biên lai về Gmail." : ""));
             return res;
         }
 
@@ -170,8 +248,8 @@ public class PaymentServiceImpl implements PaymentService {
             cttp.setTienPhatId(tp.getId());
             cttp.setSoTien(tp.getSoTien());
             cttp.setNgayThanhToan(LocalDateTime.now());
-            cttp.setPhuongThuc("CHUYEN_KHOAN");
-            cttp.setGhiChu("Thanh toán online MoMo. Mã GD: " + maGdThucTe);
+            cttp.setPhuongThuc(prefix);
+            cttp.setGhiChu("Thanh toán online " + tenCổng + ". Mã GD: " + maGdThucTe);
             chiTietTienPhatRepository.save(cttp);
         }
 
@@ -233,6 +311,7 @@ public class PaymentServiceImpl implements PaymentService {
         res.put("tienPhatId", tp.getId());
         res.put("soTien", tp.getSoTien());
         res.put("maGiaoDich", maGdThucTe);
+        res.put("phuongThuc", prefix);
         res.put("emailNhan", emailGui);
 
         boolean emailSent = emailRes != null && Boolean.TRUE.equals(emailRes.get("success"));
@@ -246,7 +325,7 @@ public class PaymentServiceImpl implements PaymentService {
             res.put("emailStatus", "Độc giả chưa có email trong hồ sơ để gửi thông báo.");
         }
 
-        res.put("message", "Xác nhận thanh toán MoMo thành công! " + (emailSent ? "Đã gửi email biên lai về Gmail." : ""));
+        res.put("message", "Xác nhận thanh toán " + tenCổng + " thành công! " + (emailSent ? "Đã gửi email biên lai về Gmail." : ""));
         return res;
     }
 }

@@ -9,17 +9,17 @@ import {
 } from "react-icons/fi";
 import API_CONFIG from "@/config/api";
 
-// ===== DỮ LIỆU GIẢ ZALOPAY =====
-const ZALOPAY_FAKE = {
-    appId: "2554",
-    merchantName: "THƯ VIỆN SỐ",
-    bankCode: "zalopayapp",
+// ===== CẤU HÌNH VÍ ZALOPAY THẬT (NAPAS BIN 971101) =====
+const ZALOPAY_CONFIG = {
+    merchantName: "THƯ VIỆN SỐ (Ví ZaloPay)",
+    bankCode: "971101", // Napas BIN 971101 của Ví ZaloPay (ZION)
     accountNo: "0382450875",
     accountName: "THU VIEN SO",
     description: "Nộp phạt thư viện",
     logoUrl: "https://upload.wikimedia.org/wikipedia/vi/5/5e/ZaloPay_Logo.png",
-    prefix: "ZALO",
+    prefix: "ZALOPAY",
 };
+const ZALOPAY_FAKE = ZALOPAY_CONFIG;
 
 // ===== DỮ LIỆU MOMO THẬT =====
 const MOMO_FAKE = {
@@ -35,7 +35,7 @@ export default function TienPhatAdminPage() {
 
     // Panel nộp phạt bên phải
     const [khoanPhatChon, setKhoanPhatChon] = useState(null);
-    const [phuongThuc, setPhuongThuc] = useState("MOMO"); // MOMO | ZALOPAY | TIEN_MAT
+    const [phuongThuc, setPhuongThuc] = useState("MOMO"); // MOMO | ZALOPAY
 
     // QR & thanh toán
     const [maGiaoDich, setMaGiaoDich] = useState("");
@@ -144,7 +144,7 @@ export default function TienPhatAdminPage() {
     const xacNhanMoMo = async () => {
         if (!khoanPhatChon) return;
         setDangXuLy(true);
-        setBuocXuLy("1. Đang kết nối đến cổng MoMo Sandbox...");
+        setBuocXuLy("1. Đang kết nối cổng MoMo...");
         try {
             await new Promise((r) => setTimeout(r, 600));
             setBuocXuLy("2. MoMo đã xác thực mã QR & trừ tiền giả lập thành công...");
@@ -230,15 +230,20 @@ export default function TienPhatAdminPage() {
 
             // Gọi API backend để cập nhật trạng thái khoản phạt
             try {
-                await fetch(
-                    `${API_CONFIG.BASE_URL}/tienPhat/${khoanPhatChon.id}/thanhToan?phuongThuc=ZALOPAY`,
+                const resZalo = await fetch(
+                    `${API_CONFIG.BASE_URL}/payment/zalopay/${khoanPhatChon.id}/xacNhan?maGiaoDich=${encodeURIComponent(maGD)}&emailNhan=${encodeURIComponent(emailNhan || "")}`,
                     { method: "POST" }
                 );
+                if (!resZalo.ok) {
+                    await fetch(
+                        `${API_CONFIG.BASE_URL}/tienPhat/${khoanPhatChon.id}/thanhToan?phuongThuc=ZALOPAY`,
+                        { method: "POST" }
+                    );
+                }
             } catch {
-                // Nếu API chưa hỗ trợ ZALOPAY, thử qua TIEN_MAT
                 try {
                     await fetch(
-                        `${API_CONFIG.BASE_URL}/tienPhat/${khoanPhatChon.id}/thanhToan?phuongThuc=TIEN_MAT`,
+                        `${API_CONFIG.BASE_URL}/tienPhat/${khoanPhatChon.id}/thanhToan?phuongThuc=ZALOPAY`,
                         { method: "POST" }
                     );
                 } catch {}
@@ -270,12 +275,12 @@ export default function TienPhatAdminPage() {
         }
     };
 
-    // Tạo URL ảnh VietQR chuẩn Ví ZaloPay / MoMo - App quét nhận diện 100%
+    // Tạo URL ảnh VietQR chuẩn Ví ZaloPay - App quét nhận diện 100%
     const layUrlVietQrZaloPay = () => {
         if (!khoanPhatChon) return "";
         const soTien = khoanPhatChon.soTien || 25000;
         const noiDung = `NOP_PHAT_${khoanPhatChon.id}`;
-        return `https://img.vietqr.io/image/momo-0382450875-compact2.jpg?amount=${soTien}&addInfo=${noiDung}&accountName=THU%20VIEN%20SO`;
+        return `https://img.vietqr.io/image/${ZALOPAY_CONFIG.bankCode}-${ZALOPAY_CONFIG.accountNo}-compact2.jpg?amount=${soTien}&addInfo=${encodeURIComponent(noiDung)}&accountName=${encodeURIComponent(ZALOPAY_CONFIG.accountName)}`;
     };
 
     // Tạo QR URL MoMo (VietQR - Số ví MoMo thật 0382450875)
@@ -550,7 +555,7 @@ export default function TienPhatAdminPage() {
                                     {/* ===== CHỌN PHƯƠNG THỨC THANH TOÁN ===== */}
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-2">Phương thức thanh toán:</label>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-2 gap-2">
                                             {/* MoMo */}
                                             <button
                                                 onClick={() => { setPhuongThuc("MOMO"); setMaGiaoDich(sinhMaGia("MOMO")); setQuetThanhCong(false); setDangQuetQr(false); }}
@@ -568,7 +573,7 @@ export default function TienPhatAdminPage() {
 
                                             {/* ZaloPay */}
                                             <button
-                                                onClick={() => { setPhuongThuc("ZALOPAY"); setMaGiaoDich(sinhMaGia("ZALO")); setQuetThanhCong(false); setDangQuetQr(false); }}
+                                                onClick={() => { setPhuongThuc("ZALOPAY"); setMaGiaoDich(sinhMaGia("ZALOPAY")); setQuetThanhCong(false); setDangQuetQr(false); }}
                                                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-xs font-semibold ${
                                                     phuongThuc === "ZALOPAY"
                                                         ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md shadow-blue-100"
@@ -579,21 +584,6 @@ export default function TienPhatAdminPage() {
                                                     Zalo
                                                 </div>
                                                 <span>ZaloPay</span>
-                                            </button>
-
-                                            {/* Tiền mặt */}
-                                            <button
-                                                onClick={() => { setPhuongThuc("TIEN_MAT"); setQuetThanhCong(false); setDangQuetQr(false); }}
-                                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition text-xs font-semibold ${
-                                                    phuongThuc === "TIEN_MAT"
-                                                        ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md shadow-emerald-100"
-                                                        : "border-gray-200 bg-white text-gray-600 hover:border-emerald-300"
-                                                }`}
-                                            >
-                                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-sm">
-                                                    <FiDollarSign size={18} />
-                                                </div>
-                                                <span>Tiền mặt</span>
                                             </button>
                                         </div>
                                     </div>
@@ -640,7 +630,7 @@ export default function TienPhatAdminPage() {
                                             {/* Mã giao dịch */}
                                             <div className="bg-purple-50/60 p-2.5 rounded-xl border border-purple-200 text-xs">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="font-bold text-purple-900">Mã GD giả lập:</span>
+                                                    <span className="font-bold text-purple-900">Mã giao dịch:</span>
                                                     <button onClick={() => setMaGiaoDich(sinhMaGia("MOMO"))} className="text-[11px] text-purple-700 hover:text-purple-900 flex items-center gap-1">
                                                         <FiRefreshCw size={10} /> Đổi mã
                                                     </button>
@@ -673,7 +663,7 @@ export default function TienPhatAdminPage() {
                                         <div className="space-y-3">
                                             {/* QR ZaloPay - Quét được 100% bằng App ZaloPay / Zalo / Ngân hàng */}
                                             <div className="flex flex-col items-center">
-                                                <span className="text-xs font-bold text-gray-600 mb-2">Quét mã QR bằng App ZaloPay / Zalo</span>
+                                                <span className="text-xs font-bold text-gray-700 mb-2">Quét mã QR bằng App Zalo thật / ZaloPay / Ngân hàng</span>
                                                 <div className="relative p-3 bg-white rounded-2xl shadow-md border border-gray-100 inline-block">
                                                     <img
                                                         src={layUrlVietQrZaloPay()}
@@ -694,11 +684,21 @@ export default function TienPhatAdminPage() {
                                             {/* Thông tin ZaloPay */}
                                             <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-200 text-xs space-y-1.5">
                                                 <p>Đơn vị nhận: <b>{ZALOPAY_FAKE.merchantName}</b></p>
-                                                <p>Số TK: <b className="font-mono">{ZALOPAY_FAKE.accountNo}</b></p>
+                                                <p>Số TK Ví: <b className="font-mono">{ZALOPAY_FAKE.accountNo}</b></p>
                                                 <p>Nội dung: <b className="text-emerald-700">NOP_PHAT_{khoanPhatChon.id}</b></p>
+                                                <div className="pt-1">
+                                                    <a
+                                                        href="https://zalo.me/0382450875"
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-[11px] text-blue-600 hover:underline font-bold inline-flex items-center gap-1"
+                                                    >
+                                                        👉 Mở ứng dụng Zalo chat chuyển tiền (0382450875)
+                                                    </a>
+                                                </div>
                                             </div>
 
-                                            {/* Nút giả lập quét QR */}
+                                            {/* Nút xác nhận thanh toán ZaloPay */}
                                             {!quetThanhCong && !dangXuLy && (
                                                 <div>
                                                     <button
@@ -707,7 +707,7 @@ export default function TienPhatAdminPage() {
                                                         className="w-full py-3 bg-gradient-to-r from-[#008fe5] to-[#00c853] hover:from-[#0077cc] text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-600/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
                                                     >
                                                         <FiSmartphone size={15} />
-                                                        {dangQuetQr ? "Đang quét mã QR..." : "📱 Giả lập quét mã QR ZaloPay"}
+                                                        {dangQuetQr ? "Đang xử lý ZaloPay..." : "✅ Xác nhận độc giả đã quét ZaloPay"}
                                                     </button>
 
                                                     {/* Thanh tiến trình quét */}
@@ -749,30 +749,6 @@ export default function TienPhatAdminPage() {
                                                     )}
                                                 </div>
                                             )}
-                                        </div>
-                                    )}
-
-                                    {/* ---------- TIỀN MẶT ---------- */}
-                                    {phuongThuc === "TIEN_MAT" && (
-                                        <div className="space-y-3">
-                                            <div className="flex flex-col items-center py-4">
-                                                <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
-                                                    <FiDollarSign size={32} className="text-emerald-600" />
-                                                </div>
-                                                <p className="text-sm font-bold text-gray-800">Thu tiền mặt tại quầy</p>
-                                                <p className="text-xs text-gray-500 mt-1 text-center">
-                                                    Xác nhận độc giả đã nộp <b className="text-red-600">{dinhDangGia(khoanPhatChon.soTien)}</b> tiền mặt
-                                                </p>
-                                            </div>
-
-                                            <button
-                                                onClick={thuTienMat}
-                                                disabled={dangXuLy}
-                                                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                                            >
-                                                <FiCheck size={15} />
-                                                {dangXuLy ? "Đang xử lý..." : "✅ Xác nhận đã thu tiền mặt"}
-                                            </button>
                                         </div>
                                     )}
                                 </div>

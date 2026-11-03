@@ -95,6 +95,17 @@ public class TienPhatServiceImpl implements TienPhatService {
     }
 
     private TienPhatDTO toDTO(TienPhat e) {
+        String phuongThuc = null;
+        LocalDateTime ngayThanhToan = null;
+        if ("DA_THANH_TOAN".equals(e.getTrangThai())) {
+            List<ChiTietTienPhat> list = chiTietTienPhatRepository.findByTienPhatId(e.getId());
+            if (list != null && !list.isEmpty()) {
+                ChiTietTienPhat last = list.get(list.size() - 1);
+                phuongThuc = last.getPhuongThuc();
+                ngayThanhToan = last.getNgayThanhToan();
+            }
+        }
+
         return new TienPhatDTO(
                 e.getId(),
                 e.getChiTietPhieuMuonId(),
@@ -103,7 +114,9 @@ public class TienPhatServiceImpl implements TienPhatService {
                 e.getSoTien(),
                 e.getNgayLap(),
                 e.getTrangThai(),
-                e.getGhiChu()
+                e.getGhiChu(),
+                phuongThuc,
+                ngayThanhToan
         );
     }
 }
