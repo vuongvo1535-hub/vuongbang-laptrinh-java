@@ -24,6 +24,7 @@ public interface PhieuMuonService {
 
     // Gửi email nhắc nhở trả sách cho phiếu mượn
     java.util.Map<String, Object> guiEmailNhacNho(Long phieuMuonId);
+    java.util.Map<String, Object> guiEmailNhacNho(Long phieuMuonId, String emailTuyChon);
 
     // Tự động quét toàn bộ và gửi email nhắc nhở các phiếu sắp đến hạn hoặc quá hạn
     java.util.Map<String, Object> quetVaGuiEmailNhacNhoTatCa();

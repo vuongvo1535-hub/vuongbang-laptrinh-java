@@ -43,7 +43,8 @@ public class EmailServiceImpl implements EmailService {
             BigDecimal soTien,
             String noiDung,
             String lyDo,
-            String tenSach
+            String tenSach,
+            String phuongThuc
     ) {
         Map<String, Object> res = new HashMap<>();
 
@@ -54,8 +55,20 @@ public class EmailServiceImpl implements EmailService {
         }
 
         try {
+            boolean isZaloPay = phuongThuc != null && phuongThuc.toUpperCase().contains("ZALOPAY");
+            String tenPhuongThuc = isZaloPay ? "ZaloPay" : "MoMo";
+            String fromSenderName = isZaloPay ? "Thư Viện Số - ZaloPay Payment" : "Thư Viện Số - MoMo Payment";
+            String tieuDe = "Biên lai xác nhận thanh toán " + tenPhuongThuc + " - Thư Viện Số [" + maGiaoDich + "]";
+
+            String headerBg = isZaloPay
+                    ? "linear-gradient(135deg, #008fe5 0%, #00a86b 100%)"
+                    : "linear-gradient(135deg, #a50064 0%, #d82d8b 100%)";
+            String brandColor = isZaloPay ? "#008fe5" : "#a50064";
+            String amountColor = isZaloPay ? "#008fe5" : "#d82d8b";
+            String badgeBg = isZaloPay ? "#e6f4ff" : "#e6f7ec";
+            String badgeColor = isZaloPay ? "#0066cc" : "#027a48";
+
             String thoiGian = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"));
-            String tieuDe = "Biên lai xác nhận thanh toán MoMo - Thư Viện Số [" + maGiaoDich + "]";
 
             String templateHtml = """
                 <!DOCTYPE html>
@@ -65,16 +78,16 @@ public class EmailServiceImpl implements EmailService {
                     <style>
                         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #333; }
                         .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-                        .header { background: linear-gradient(135deg, #a50064, #d82d8b); padding: 30px 20px; text-align: center; color: white; }
-                        .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
-                        .header p { margin: 6px 0 0; opacity: 0.9; font-size: 13px; }
+                        .header { background: {{headerBg}}; padding: 30px 20px; text-align: center; color: white; }
+                        .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+                        .header p { margin: 6px 0 0; opacity: 0.95; font-size: 13px; }
                         .body { padding: 30px 25px; }
-                        .status-badge { display: inline-block; background-color: #e6f7ec; color: #027a48; padding: 6px 14px; border-radius: 50px; font-weight: 700; font-size: 13px; margin-bottom: 20px; }
+                        .status-badge { display: inline-block; background-color: {{badgeBg}}; color: {{badgeColor}}; padding: 6px 14px; border-radius: 50px; font-weight: 700; font-size: 13px; margin-bottom: 20px; }
                         .info-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
                         .info-table td { padding: 12px 10px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
                         .info-table td:first-child { color: #667085; width: 40%; }
                         .info-table td:last-child { font-weight: 600; color: #101828; text-align: right; }
-                        .amount { font-size: 20px !important; color: #d82d8b !important; font-weight: 800 !important; }
+                        .amount { font-size: 20px !important; color: {{amountColor}} !important; font-weight: 800 !important; }
                         .footer { background-color: #fafafa; padding: 20px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; }
                         .note-box { background: #fff8eb; border-left: 4px solid #f79009; padding: 12px; border-radius: 6px; font-size: 13px; color: #b54708; margin-top: 20px; }
                     </style>
@@ -82,20 +95,24 @@ public class EmailServiceImpl implements EmailService {
                 <body>
                     <div class="card">
                         <div class="header">
-                            <h1>XÁC NHẬN THANH TOÁN MOMO THÀNH CÔNG</h1>
-                            <p>Hệ thống Quản lý Thư viện Số</p>
+                            <h1>XÁC NHẬN THANH TOÁN {{tenPhuongThucInHoa}} THÀNH CÔNG</h1>
+                            <p>Cổng thanh toán Ví {{tenPhuongThuc}} - Thư Viện Số</p>
                         </div>
                         <div class="body">
                             <div style="text-align: center;">
                                 <span class="status-badge">✔ GIAO DỊCH ĐÃ HOÀN TẤT</span>
                             </div>
                             <p>Kính gửi <b>{{tenDocGia}}</b>,</p>
-                            <p>Cảm ơn bạn đã hoàn tất khoản thanh toán qua ví điện tử MoMo. Dưới đây là thông tin chi tiết biên lai giao dịch:</p>
+                            <p>Cảm ơn bạn đã hoàn tất khoản thanh toán qua ví điện tử <b>{{tenPhuongThuc}}</b>. Dưới đây là thông tin chi tiết biên lai giao dịch:</p>
                             
                             <table class="info-table">
                                 <tr>
-                                    <td>Mã giao dịch MoMo:</td>
-                                    <td style="font-family: monospace; color: #a50064;">{{maGiaoDich}}</td>
+                                    <td>Phương thức thanh toán:</td>
+                                    <td style="font-weight: 700; color: {{brandColor}};">Ví điện tử {{tenPhuongThuc}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Mã giao dịch {{tenPhuongThuc}}:</td>
+                                    <td style="font-family: monospace; color: {{brandColor}}; font-weight: 700;">{{maGiaoDich}}</td>
                                 </tr>
                                 <tr>
                                     <td>Số tiền đã thanh toán:</td>
@@ -119,7 +136,7 @@ public class EmailServiceImpl implements EmailService {
                                 </tr>
                                 <tr>
                                     <td>Trạng thái khoản phạt:</td>
-                                    <td style="color: #027a48;">ĐÃ THANH TOÁN XONG</td>
+                                    <td style="color: #027a48; font-weight: 700;">ĐÃ THANH TOÁN XONG</td>
                                 </tr>
                             </table>
 
@@ -138,8 +155,15 @@ public class EmailServiceImpl implements EmailService {
 
             // Thay thế an toàn bằng replace thay vì formatted để tránh lỗi CSS percentage (%)
             String noiDungHtml = templateHtml
+                    .replace("{{headerBg}}", headerBg)
+                    .replace("{{badgeBg}}", badgeBg)
+                    .replace("{{badgeColor}}", badgeColor)
+                    .replace("{{brandColor}}", brandColor)
+                    .replace("{{amountColor}}", amountColor)
+                    .replace("{{tenPhuongThucInHoa}}", tenPhuongThuc.toUpperCase())
+                    .replace("{{tenPhuongThuc}}", tenPhuongThuc)
                     .replace("{{tenDocGia}}", tenDocGia != null ? tenDocGia : "Độc giả")
-                    .replace("{{maGiaoDich}}", maGiaoDich != null ? maGiaoDich : "MOMO_TEST")
+                    .replace("{{maGiaoDich}}", maGiaoDich != null ? maGiaoDich : (isZaloPay ? "ZALOPAY_TEST" : "MOMO_TEST"))
                     .replace("{{soTien}}", dinhDangTien(soTien))
                     .replace("{{noiDung}}", noiDung != null ? noiDung : "Nộp phí phạt thư viện")
                     .replace("{{lyDo}}", lyDo != null ? lyDo : "Tiền phạt thư viện")
@@ -155,14 +179,14 @@ public class EmailServiceImpl implements EmailService {
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, "Thư Viện Số - MoMo Payment");
+            helper.setFrom(fromEmail, fromSenderName);
             helper.setTo(emailNhan);
             helper.setSubject(tieuDe);
             helper.setText(noiDungHtml, true);
 
             mailSender.send(message);
 
-            log.info("Đã gửi email xác nhận thanh toán MoMo thành công tới: {}", emailNhan);
+            log.info("Đã gửi email xác nhận thanh toán {} thành công tới: {}", tenPhuongThuc, emailNhan);
             res.put("success", true);
             res.put("message", "Đã gửi email thông báo thành công đến " + emailNhan);
             return res;
@@ -173,6 +197,19 @@ public class EmailServiceImpl implements EmailService {
             res.put("hint", "Vui lòng kiểm tra email và Mật khẩu ứng dụng trong application.properties");
             return res;
         }
+    }
+
+    @Override
+    public Map<String, Object> guiEmailThongBaoThanhToan(
+            String emailNhan,
+            String tenDocGia,
+            String maGiaoDich,
+            BigDecimal soTien,
+            String noiDung,
+            String lyDo,
+            String tenSach
+    ) {
+        return guiEmailThongBaoThanhToan(emailNhan, tenDocGia, maGiaoDich, soTien, noiDung, lyDo, tenSach, "MOMO");
     }
 
     @Override
@@ -229,20 +266,20 @@ public class EmailServiceImpl implements EmailService {
                             </div>
 
                             <div style="padding: 24px;">
-                                <p style="margin: 0 0 12px; font-size: 15px;">Xin chào <b>%s</b>,</p>
+                                <p style="margin: 0 0 12px; font-size: 15px;">Xin chào <b>{{tenDocGia}}</b>,</p>
                                 <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: #4b5563;">
-                                    Hệ thống gửi thư này để thông báo về tình trạng phiếu mượn sách <b>%s</b> của bạn tại thư viện:
+                                    Hệ thống gửi thư này để thông báo về tình trạng phiếu mượn sách <b>{{maPhieu}}</b> của bạn tại thư viện:
                                 </p>
 
                                 <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
                                         <span style="color: #6b7280;">Trạng thái thời hạn:</span>
-                                        %s
+                                        {{trangThaiThongBao}}
                                     </div>
                                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb; font-size: 13px;">
                                         <span style="color: #6b7280; font-weight: bold; display: block; margin-bottom: 6px;">Danh sách sách mượn:</span>
                                         <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; color: #111827;">
-                                            %s
+                                            {{danhSachSach}}
                                         </div>
                                     </div>
                                 </div>
@@ -258,7 +295,11 @@ public class EmailServiceImpl implements EmailService {
                         </div>
                     </body>
                     </html>
-                    """.formatted(tenDocGia, maPhieu, trangThaiThongBao, danhSachSach);
+                    """
+                    .replace("{{tenDocGia}}", tenDocGia != null ? tenDocGia : "Bạn đọc")
+                    .replace("{{maPhieu}}", maPhieu != null ? maPhieu : "")
+                    .replace("{{trangThaiThongBao}}", trangThaiThongBao)
+                    .replace("{{danhSachSach}}", danhSachSach != null ? danhSachSach : "");
 
             if (mailSender == null) {
                 log.info("[MOCK EMAIL] Đã mô phỏng gửi email nhắc nhở tới {} (Mã phiếu: {})", emailNhan, maPhieu);

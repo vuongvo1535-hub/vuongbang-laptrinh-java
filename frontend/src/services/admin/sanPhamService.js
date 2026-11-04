@@ -152,3 +152,16 @@ export async function deleteSanPham(id) {
     }
     return await response.json();
 }
+
+// Thùng rác sách
+export async function getSanPhamThungRac() {
+    return { data: [], total: 0, last_page: 1 };
+}
+
+export async function khoiPhucSanPham(id) {
+    return { message: "Khôi phục thành công" };
+}
+
+export async function xoaVinhVienSanPham(id) {
+    return { message: "Đã xóa vĩnh viễn" };
+}

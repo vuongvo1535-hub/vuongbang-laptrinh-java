@@ -31,6 +31,11 @@ public class PhieuMuonController {
         return ResponseEntity.ok(service.layTheoDocGia(docGiaId));
     }
 
+    @GetMapping("/docGia/{docGiaId}")
+    public ResponseEntity<List<PhieuMuonDTO>> xemTheoDocGiaPath(@PathVariable Long docGiaId) {
+        return ResponseEntity.ok(service.layTheoDocGia(docGiaId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PhieuMuonDTO> xemTheoId(@PathVariable Long id) {
         return ResponseEntity.ok(service.layTheoId(id));
@@ -66,8 +71,10 @@ public class PhieuMuonController {
 
     /** Gửi email nhắc nhở trả sách cho 1 phiếu mượn cụ thể */
     @PostMapping("/{id}/nhacNhoEmail")
-    public ResponseEntity<Map<String, Object>> guiEmailNhacNho(@PathVariable Long id) {
-        return ResponseEntity.ok(service.guiEmailNhacNho(id));
+    public ResponseEntity<Map<String, Object>> guiEmailNhacNho(
+            @PathVariable Long id,
+            @RequestParam(required = false) String email) {
+        return ResponseEntity.ok(service.guiEmailNhacNho(id, email));
     }
 
     /** Tự động quét toàn bộ hệ thống và gửi email nhắc nhở cho tất cả sách sắp đến hạn / quá hạn */

@@ -107,15 +107,23 @@ export default function PhieuMuonAdminPage() {
         }
     };
 
-    const handleNhacNhoEmail = async (id) => {
-        if (!confirm(`Gửi email thông báo nhắc nhở hạn trả sách cho phiếu #${id}?`)) return;
+    const handleNhacNhoEmail = async (id, tenDocGia = "") => {
+        const emailTuyChon = prompt(
+            `Xác nhận gửi email nhắc hẹn trả sách cho phiếu #${id} (${tenDocGia || "Độc giả"}):\n\n` +
+            `Nhập email người nhận (bấm OK ngay để gửi đến email độc giả trong hồ sơ):`,
+            ""
+        );
+        if (emailTuyChon === null) return;
         try {
-            const res = await fetch(`${API_CONFIG.BASE_URL}/phieuMuon/${id}/nhacNhoEmail`, { method: "POST" });
+            const url = emailTuyChon.trim()
+                ? `${API_CONFIG.BASE_URL}/phieuMuon/${id}/nhacNhoEmail?email=${encodeURIComponent(emailTuyChon.trim())}`
+                : `${API_CONFIG.BASE_URL}/phieuMuon/${id}/nhacNhoEmail`;
+            const res = await fetch(url, { method: "POST" });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
-                alert(data.message || "Đã gửi email nhắc nhở trả sách thành công!");
+                alert(`🎉 ${data.message || "Đã gửi email nhắc nhở trả sách thành công!"}`);
             } else {
-                alert(data.message || "Không thể gửi email nhắc nhở.");
+                alert(`⚠️ ${data.message || "Không thể gửi email nhắc nhở."}`);
             }
         } catch (err) {
             alert("Lỗi kết nối: " + err.message);
@@ -303,8 +311,8 @@ export default function PhieuMuonAdminPage() {
                                             )}
                                             {(row.trangThai === "DANG_MUON" || row.trang_thai === "DANG_MUON") && (
                                                 <button
-                                                    onClick={() => handleNhacNhoEmail(row.id)}
-                                                    className="rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 flex items-center gap-1"
+                                                    onClick={() => handleNhacNhoEmail(row.id, row.tenDocGia || mapDocGia[row.docGiaId])}
+                                                    className="rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 flex items-center gap-1 transition shadow-sm"
                                                     title="Gửi email nhắc nhở độc giả trả sách"
                                                 >
                                                     <span>✉️</span> Nhắc email

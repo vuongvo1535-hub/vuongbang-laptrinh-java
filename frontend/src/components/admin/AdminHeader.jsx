@@ -10,6 +10,7 @@ const tieuDe = [
     ["/admin/danhmuc", "Danh mục sách"],
     ["/admin/tacgia", "Quản lý Tác giả"],
     ["/admin/donhang", "Phiếu mượn - Trả sách"],
+    ["/admin/dattruoc", "Hàng đợi Đặt trước sách"],
     ["/admin/nguoidung", "Độc giả thư viện"],
     ["/admin/tienphat", "Quản lý Tiền phạt"],
     ["/admin", "Tổng quan hệ thống"],
@@ -41,8 +42,8 @@ export default function AdminHeader() {
     const muc = tieuDe.find(([link]) => pathname.startsWith(link));
     const tenTrang = muc ? muc[1] : "Quản trị thư viện";
 
-    const tenHienThi = adminInfo?.hoTen || adminInfo?.tenDangNhap || "Thủ thư";
-    const vaiTroHienThi = adminInfo?.vaiTro === "QUAN_TRI" ? "Quản trị viên" : "Thủ thư";
+    const isQuanTri = adminInfo?.vaiTro === "QUAN_TRI";
+    const tenHienThi = adminInfo?.hoTen || adminInfo?.tenDangNhap || (isQuanTri ? "Admin" : "Thủ thư");
 
     return (
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-emerald-800 bg-emerald-900 pl-16 pr-4 text-white sm:pr-6 md:pl-64">
@@ -61,13 +62,23 @@ export default function AdminHeader() {
                 </button>
 
                 <div className="flex items-center gap-3 border-l border-emerald-700 pl-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-700 text-sm font-semibold uppercase">
-                        {tenHienThi.substring(0, 2)}
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold uppercase shadow-sm ${
+                        isQuanTri ? "bg-purple-700 text-amber-200" : "bg-emerald-700 text-white"
+                    }`}>
+                        {isQuanTri ? "AD" : "TT"}
                     </div>
 
                     <div className="hidden leading-tight sm:block">
                         <p className="text-sm font-medium">{tenHienThi}</p>
-                        <p className="text-xs text-emerald-200">{vaiTroHienThi}</p>
+                        {isQuanTri ? (
+                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950/80 text-amber-300 border border-purple-500/50">
+                                🛡️ Quản trị viên
+                            </span>
+                        ) : (
+                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-800 text-teal-200 border border-emerald-600/50">
+                                📖 Thủ thư
+                            </span>
+                        )}
                     </div>
 
                     <button

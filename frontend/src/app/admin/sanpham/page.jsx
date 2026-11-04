@@ -18,6 +18,17 @@ export default function SanPhamAdminPage() {
     const [tongTrang, setTongTrang] = useState(1);
     const [dangTai, setDangTai] = useState(true);
     const [refreshFlag, setRefreshFlag] = useState(0);
+    const [vaiTro, setVaiTro] = useState(null);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("admin_user");
+            if (raw) {
+                const u = JSON.parse(raw);
+                setVaiTro(u.vaiTro);
+            }
+        } catch {}
+    }, []);
 
     useEffect(() => {
         async function tai() {
@@ -36,7 +47,11 @@ export default function SanPhamAdminPage() {
     }, [trang, refreshFlag]);
 
     const handleXoa = async (id) => {
-        if (!confirm("Bạn có chắc muốn xóa sách này?")) return;
+        if (vaiTro !== "QUAN_TRI") {
+            alert("Chỉ Quản trị viên mới có quyền xóa sách khỏi hệ thống!");
+            return;
+        }
+        if (!confirm("Bạn có chắc muốn xóa sách này? Thao tác này sẽ xóa vĩnh viễn sách và ảnh hưởng các bản sao!")) return;
         try {
             await deleteSanPham(id);
             alert("Đã xóa sách thành công!");
@@ -62,12 +77,27 @@ export default function SanPhamAdminPage() {
         <div className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Quản lý Sách thư viện</h1>
-                    <p className="text-sm text-gray-500">Danh sách các đầu sách đang lưu hành</p>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-gray-800">Quản lý Sách thư viện</h1>
+                        {vaiTro === "QUAN_TRI" ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                                🛡️ Quyền Admin
+                            </span>
+                        ) : (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                📖 Nghiệp vụ Thủ thư
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {vaiTro === "QUAN_TRI"
+                            ? "Toàn quyền quản lý, thêm mới, sửa và xóa đầu sách khỏi cơ sở dữ liệu."
+                            : "Tra cứu, kiểm tra bản sao, cập nhật thông tin sách đang lưu hành."}
+                    </p>
                 </div>
                 <Link
                     href="/admin/sanpham/tao"
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 shadow-sm transition"
                 >
                     + Thêm sách mới
                 </Link>
@@ -141,18 +171,26 @@ export default function SanPhamAdminPage() {
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-center">
-                                            <div className="flex justify-center gap-2">
+                                            <div className="flex justify-center items-center gap-2">
                                                 <Link href={`/admin/sanpham/${row.id}`}>
-                                                    <button className="rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600">
+                                                    <button className="rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition">
                                                         Sửa
                                                     </button>
                                                 </Link>
-                                                <button
-                                                    onClick={() => handleXoa(row.id)}
-                                                    className="rounded bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
-                                                >
-                                                    Xóa
-                                                </button>
+                                                {/* Phân quyền: Chỉ Quản trị viên mới có nút Xóa sách */}
+                                                {vaiTro === "QUAN_TRI" ? (
+                                                    <button
+                                                        onClick={() => handleXoa(row.id)}
+                                                        className="rounded bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition"
+                                                        title="Xóa sách (Chỉ Admin)"
+                                                    >
+                                                        Xóa
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[11px] text-gray-400 italic px-1">
+                                                        (Khóa xóa)
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,30 +8,40 @@ import {
 import Pagination from "@/components/common/Pagination";
 
 export default function NguoiDungPage() {
-    // Danh sách người dùng.
+    // Danh sách người dùng
     const [nguoiDungs, setNguoiDungs] = useState([]);
 
-    // Từ khóa nhập và từ khóa dùng để tìm kiếm.
+    // Từ khóa tìm kiếm
     const [tuKhoa, setTuKhoa] = useState("");
     const [tuKhoaTim, setTuKhoaTim] = useState("");
 
-    // Thông tin phân trang.
+    // Thông tin phân trang
     const [trang, setTrang] = useState(1);
     const [tongTrang, setTongTrang] = useState(1);
 
-    // Trạng thái tải danh sách và lỗi.
+    // Trạng thái tải danh sách và lỗi
     const [dangTai, setDangTai] = useState(true);
     const [loi, setLoi] = useState("");
 
-    // Thông tin chi tiết người dùng.
+    // Chi tiết người dùng
     const [nguoiDungChiTiet, setNguoiDungChiTiet] = useState(null);
     const [hienChiTiet, setHienChiTiet] = useState(false);
     const [dangTaiChiTiet, setDangTaiChiTiet] = useState(false);
 
-    // Tăng biến này để tải lại dữ liệu khi cần.
     const [lanTaiLai, setLanTaiLai] = useState(0);
+    const [vaiTro, setVaiTro] = useState(null);
 
-    // Lấy danh sách người dùng theo trang và từ khóa.
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("admin_user");
+            if (raw) {
+                const u = JSON.parse(raw);
+                setVaiTro(u.vaiTro);
+            }
+        } catch {}
+    }, []);
+
+    // Lấy danh sách người dùng theo trang và từ khóa
     useEffect(() => {
         let huyYeuCau = false;
 
@@ -69,12 +78,10 @@ export default function NguoiDungPage() {
         };
     }, [trang, tuKhoaTim, lanTaiLai]);
 
-    // Tìm kiếm người dùng.
+    // Tìm kiếm người dùng
     const timKiem = (e) => {
         e.preventDefault();
-
         const tuKhoaMoi = tuKhoa.trim();
-
         setDangTai(true);
 
         if (trang !== 1 && tuKhoaMoi !== tuKhoaTim) {
@@ -83,22 +90,20 @@ export default function NguoiDungPage() {
         } else if (tuKhoaMoi !== tuKhoaTim) {
             setTuKhoaTim(tuKhoaMoi);
         } else {
-            // Từ khóa không đổi thì vẫn cho phép tìm lại.
             setLanTaiLai((lanTruoc) => lanTruoc + 1);
         }
     };
 
-    // Chuyển trang.
+    // Chuyển trang
     const doiTrang = (trangMoi) => {
         if (trangMoi < 1 || trangMoi > tongTrang || trangMoi === trang) {
             return;
         }
-
         setDangTai(true);
         setTrang(trangMoi);
     };
 
-    // Xem chi tiết người dùng.
+    // Xem chi tiết người dùng
     const xemChiTiet = async (id) => {
         setDangTaiChiTiet(true);
         setLoi("");
@@ -117,13 +122,13 @@ export default function NguoiDungPage() {
         }
     };
 
-    // Đóng cửa sổ chi tiết.
+    // Đóng cửa sổ chi tiết
     const dongChiTiet = () => {
         setHienChiTiet(false);
         setNguoiDungChiTiet(null);
     };
 
-    // Hiển thị trạng thái người dùng.
+    // Hiển thị trạng thái người dùng
     const hienThiTrangThai = (trangThai) => {
         const giaTri = String(trangThai ?? "")
             .trim()
@@ -160,44 +165,58 @@ export default function NguoiDungPage() {
 
     return (
         <div className="space-y-6">
-            {/* Tiêu đề trang. */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                    Quản lý người dùng
-                </h1>
+            {/* Tiêu đề trang & Huy hiệu vai trò */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-gray-800">
+                            Quản lý độc giả thư viện
+                        </h1>
+                        {vaiTro === "QUAN_TRI" ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                                🛡️ Quản trị viên
+                            </span>
+                        ) : (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                📖 Thủ thư (Tra cứu)
+                            </span>
+                        )}
+                    </div>
 
-                <p className="mt-1 text-sm text-gray-500">
-                    Xem danh sách và thông tin chi tiết người dùng.
-                </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                        {vaiTro === "QUAN_TRI"
+                            ? "Xem danh sách, kiểm tra tài khoản và quản lý thông tin độc giả toàn hệ thống."
+                            : "Tra cứu độc giả, xem thông tin liên hệ và trạng thái thẻ thư viện phục vụ mượn trả."}
+                    </p>
+                </div>
             </div>
 
-            {/* Form tìm kiếm. */}
+            {/* Form tìm kiếm */}
             <form
                 onSubmit={timKiem}
-                className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow sm:flex-row"
+                className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm border border-gray-100 sm:flex-row"
             >
                 <input
                     type="text"
                     value={tuKhoa}
                     onChange={(e) => setTuKhoa(e.target.value)}
-                    placeholder="Tìm theo tên, email..."
-                    className="min-w-0 flex-1 rounded-md border border-gray-300 px-4 py-2 outline-none focus:border-blue-500"
+                    placeholder="Tìm theo tên, email, số điện thoại..."
+                    className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 />
 
                 <button
                     type="submit"
                     disabled={dangTai}
-                    className="rounded-md bg-blue-600 px-5 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 transition"
                 >
                     Tìm kiếm
                 </button>
             </form>
 
-            {/* Thông báo lỗi. */}
+            {/* Thông báo lỗi */}
             {loi && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
                     <p>{loi}</p>
-
                     <button
                         type="button"
                         onClick={() => {
@@ -211,11 +230,11 @@ export default function NguoiDungPage() {
                 </div>
             )}
 
-            {/* Bảng danh sách người dùng. */}
-            <div className="overflow-hidden rounded-lg bg-white shadow">
+            {/* Bảng danh sách người dùng */}
+            <div className="overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between border-b px-5 py-4">
                     <h2 className="font-semibold text-gray-800">
-                        Danh sách người dùng
+                        Danh sách độc giả
                     </h2>
 
                     <span className="text-sm text-gray-500">
@@ -230,7 +249,7 @@ export default function NguoiDungPage() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 text-gray-600">
+                            <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b">
                                 <tr>
                                     <th className="whitespace-nowrap px-5 py-3">ID</th>
                                     <th className="whitespace-nowrap px-5 py-3">Họ tên</th>
@@ -248,10 +267,10 @@ export default function NguoiDungPage() {
                                     nguoiDungs.map((nguoiDung) => (
                                         <tr
                                             key={nguoiDung.id}
-                                            className="hover:bg-gray-50"
+                                            className="hover:bg-gray-50 transition"
                                         >
-                                            <td className="px-5 py-4">
-                                                {nguoiDung.id}
+                                            <td className="px-5 py-4 font-mono text-xs text-gray-500">
+                                                #{nguoiDung.id}
                                             </td>
 
                                             <td className="px-5 py-4 font-medium text-gray-800">
@@ -261,11 +280,11 @@ export default function NguoiDungPage() {
                                                     "Chưa cập nhật"}
                                             </td>
 
-                                            <td className="px-5 py-4">
+                                            <td className="px-5 py-4 text-gray-600">
                                                 {nguoiDung.email || "—"}
                                             </td>
 
-                                            <td className="px-5 py-4">
+                                            <td className="px-5 py-4 text-gray-600">
                                                 {nguoiDung.so_dien_thoai ||
                                                     nguoiDung.phone ||
                                                     "—"}
@@ -284,11 +303,11 @@ export default function NguoiDungPage() {
                                                         xemChiTiet(nguoiDung.id)
                                                     }
                                                     disabled={dangTaiChiTiet}
-                                                    className="rounded-md bg-blue-50 px-3 py-2 text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                                                    className="rounded-lg bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 transition"
                                                 >
                                                     {dangTaiChiTiet
                                                         ? "Đang tải..."
-                                                        : "Chi tiết"}
+                                                        : "Xem hồ sơ"}
                                                 </button>
                                             </td>
                                         </tr>
@@ -299,7 +318,7 @@ export default function NguoiDungPage() {
                                             colSpan={6}
                                             className="px-5 py-8 text-center text-gray-500"
                                         >
-                                            Không tìm thấy người dùng.
+                                            Không tìm thấy độc giả nào.
                                         </td>
                                     </tr>
                                 )}
@@ -308,7 +327,7 @@ export default function NguoiDungPage() {
                     </div>
                 )}
 
-                {/* Phân trang dùng đúng props của Pagination.jsx. */}
+                {/* Phân trang */}
                 <div className="overflow-x-auto border-t px-5 py-4">
                     <Pagination
                         currentPage={trang}
@@ -318,25 +337,28 @@ export default function NguoiDungPage() {
                 </div>
             </div>
 
-            {/* Cửa sổ xem chi tiết người dùng. */}
+            {/* Cửa sổ xem chi tiết người dùng */}
             {hienChiTiet && nguoiDungChiTiet && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                     onClick={dongChiTiet}
                 >
                     <div
-                        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl"
+                        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between border-b px-6 py-4">
-                            <h2 className="text-xl font-bold text-gray-800">
-                                Chi tiết người dùng
-                            </h2>
+                        <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50/50">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-800">
+                                    Hồ sơ độc giả #{nguoiDungChiTiet.id ?? "—"}
+                                </h2>
+                                <p className="text-xs text-gray-500">Thông tin tài khoản độc giả thư viện</p>
+                            </div>
 
                             <button
                                 type="button"
                                 onClick={dongChiTiet}
-                                className="rounded-md px-3 py-1 text-xl text-gray-500 hover:bg-gray-100"
+                                className="rounded-lg p-1.5 text-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
                                 aria-label="Đóng"
                             >
                                 &times;
@@ -345,15 +367,15 @@ export default function NguoiDungPage() {
 
                         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
                             <div>
-                                <p className="text-sm text-gray-500">ID</p>
-                                <p className="mt-1 font-medium">
-                                    {nguoiDungChiTiet.id ?? "—"}
+                                <p className="text-xs font-bold text-gray-400 uppercase">Mã độc giả</p>
+                                <p className="mt-1 font-semibold text-gray-800">
+                                    #{nguoiDungChiTiet.id ?? "—"}
                                 </p>
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Họ tên</p>
-                                <p className="mt-1 font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Họ và tên</p>
+                                <p className="mt-1 font-semibold text-emerald-800">
                                     {nguoiDungChiTiet.ho_ten ||
                                         nguoiDungChiTiet.ten_nguoi_dung ||
                                         nguoiDungChiTiet.name ||
@@ -362,17 +384,17 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Email</p>
-                                <p className="mt-1 break-all font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Email liên hệ</p>
+                                <p className="mt-1 break-all font-medium text-gray-700">
                                     {nguoiDungChiTiet.email || "—"}
                                 </p>
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">
+                                <p className="text-xs font-bold text-gray-400 uppercase">
                                     Số điện thoại
                                 </p>
-                                <p className="mt-1 font-medium">
+                                <p className="mt-1 font-medium text-gray-700">
                                     {nguoiDungChiTiet.so_dien_thoai ||
                                         nguoiDungChiTiet.phone ||
                                         "—"}
@@ -380,8 +402,8 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div className="sm:col-span-2">
-                                <p className="text-sm text-gray-500">Địa chỉ</p>
-                                <p className="mt-1 font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Địa chỉ</p>
+                                <p className="mt-1 font-medium text-gray-700">
                                     {nguoiDungChiTiet.dia_chi ||
                                         nguoiDungChiTiet.address ||
                                         "—"}
@@ -389,8 +411,8 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Ngày sinh</p>
-                                <p className="mt-1 font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Ngày sinh</p>
+                                <p className="mt-1 font-medium text-gray-700">
                                     {nguoiDungChiTiet.ngay_sinh ||
                                         nguoiDungChiTiet.birth_date ||
                                         "—"}
@@ -398,8 +420,8 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Giới tính</p>
-                                <p className="mt-1 font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Giới tính</p>
+                                <p className="mt-1 font-medium text-gray-700">
                                     {nguoiDungChiTiet.gioi_tinh ||
                                         nguoiDungChiTiet.gender ||
                                         "—"}
@@ -407,8 +429,8 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Trạng thái</p>
-                                <div className="mt-2">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Trạng thái thẻ</p>
+                                <div className="mt-1">
                                     {hienThiTrangThai(
                                         nguoiDungChiTiet.trang_thai
                                     )}
@@ -416,33 +438,22 @@ export default function NguoiDungPage() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-gray-500">Ngày tạo</p>
-                                <p className="mt-1 font-medium">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Ngày tham gia</p>
+                                <p className="mt-1 font-medium text-gray-700">
                                     {nguoiDungChiTiet.ngay_tao ||
                                         nguoiDungChiTiet.created_at ||
                                         "—"}
                                 </p>
                             </div>
-
-                            <div>
-                                <p className="text-sm text-gray-500">
-                                    Ngày cập nhật
-                                </p>
-                                <p className="mt-1 font-medium">
-                                    {nguoiDungChiTiet.ngay_cap_nhat ||
-                                        nguoiDungChiTiet.updated_at ||
-                                        "—"}
-                                </p>
-                            </div>
                         </div>
 
-                        <div className="flex justify-end border-t px-6 py-4">
+                        <div className="flex justify-end border-t px-6 py-4 bg-gray-50/50">
                             <button
                                 type="button"
                                 onClick={dongChiTiet}
-                                className="rounded-md bg-gray-600 px-5 py-2 text-white hover:bg-gray-700"
+                                className="rounded-xl bg-slate-700 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition"
                             >
-                                Đóng
+                                Đóng hồ sơ
                             </button>
                         </div>
                     </div>

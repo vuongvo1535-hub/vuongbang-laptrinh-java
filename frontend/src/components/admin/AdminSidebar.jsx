@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,17 +16,17 @@ import {
     FiBookmark,
 } from "react-icons/fi";
 
-// Menu Quản lý Thư viện
-const menu = [
-    { name: "Tổng quan", link: "/admin", icon: FiHome },
-    { name: "Quét mã & Camera", link: "/admin/quetma", icon: FiCamera },
-    { name: "Quản lý Sách", link: "/admin/sanpham", icon: FiBook },
-    { name: "Danh mục sách", link: "/admin/danhmuc", icon: FiGrid },
-    { name: "Tác giả", link: "/admin/tacgia", icon: FiUserCheck },
-    { name: "Phiếu mượn - Trả", link: "/admin/donhang", icon: FiFileText },
-    { name: "Đặt trước sách", link: "/admin/dattruoc", icon: FiBookmark },
-    { name: "Độc giả", link: "/admin/nguoidung", icon: FiUsers },
-    { name: "Tiền phạt", link: "/admin/tienphat", icon: FiDollarSign },
+// Danh sách Menu kèm phân quyền (QUAN_TRI vs THU_THU)
+const tatCaMenu = [
+    { name: "Tổng quan", link: "/admin", icon: FiHome, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Quét mã & Camera", link: "/admin/quetma", icon: FiCamera, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Quản lý Sách", link: "/admin/sanpham", icon: FiBook, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Danh mục sách", link: "/admin/danhmuc", icon: FiGrid, roles: ["QUAN_TRI"] },
+    { name: "Tác giả", link: "/admin/tacgia", icon: FiUserCheck, roles: ["QUAN_TRI"] },
+    { name: "Phiếu mượn - Trả", link: "/admin/donhang", icon: FiFileText, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Đặt trước sách", link: "/admin/dattruoc", icon: FiBookmark, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Độc giả", link: "/admin/nguoidung", icon: FiUsers, roles: ["QUAN_TRI", "THU_THU"] },
+    { name: "Tiền phạt", link: "/admin/tienphat", icon: FiDollarSign, roles: ["QUAN_TRI", "THU_THU"] },
 ];
 
 function dangMo(pathname, link) {
@@ -35,6 +36,25 @@ function dangMo(pathname, link) {
 
 export default function AdminSidebar() {
     const pathname = usePathname();
+    const [vaiTro, setVaiTro] = useState(null);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("admin_user");
+            if (raw) {
+                const u = JSON.parse(raw);
+                setVaiTro(u.vaiTro);
+            }
+        } catch {
+            setVaiTro(null);
+        }
+    }, []);
+
+    // Lọc menu theo vai trò người dùng (Thủ thư chỉ thấy các menu nghiệp vụ)
+    const menuHienThi = tatCaMenu.filter((item) => {
+        if (!vaiTro) return true;
+        return item.roles.includes(vaiTro);
+    });
 
     return (
         <aside
@@ -59,9 +79,28 @@ export default function AdminSidebar() {
                     </span>
                 </Link>
 
-                <nav className="flex-1 overflow-y-auto px-2 py-4 md:px-3">
+                {/* Huy hiệu vai trò tài khoản */}
+                <div className="hidden px-3 pt-3 pb-1 md:block">
+                    <div className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border ${
+                        vaiTro === "QUAN_TRI"
+                            ? "bg-purple-950/70 border-purple-500/40 text-amber-300"
+                            : "bg-emerald-800/80 border-emerald-600/50 text-teal-200"
+                    }`}>
+                        <span className="text-base">{vaiTro === "QUAN_TRI" ? "🛡️" : "📖"}</span>
+                        <div className="leading-tight">
+                            <p className="font-bold text-white text-[11px] uppercase tracking-wider">
+                                {vaiTro === "QUAN_TRI" ? "Quản trị viên" : "Thủ thư"}
+                            </p>
+                            <p className="text-[10px] opacity-80">
+                                {vaiTro === "QUAN_TRI" ? "Toàn quyền hệ thống" : "Nghiệp vụ thư viện"}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <nav className="flex-1 overflow-y-auto px-2 py-3 md:px-3">
                     <ul className="space-y-1">
-                        {menu.map((item) => {
+                        {menuHienThi.map((item) => {
                             const Icon = item.icon;
                             const active = dangMo(pathname, item.link);
 

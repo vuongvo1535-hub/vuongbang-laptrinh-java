@@ -165,21 +165,23 @@ export default function AdminLoginPage() {
 
                 {/* Tài khoản mẫu */}
                 <div className="mt-6 pt-5 border-t border-slate-100">
-                    <p className="text-xs text-slate-500 mb-2 font-medium">Tài khoản quản trị mẫu trong SQL:</p>
+                    <p className="text-xs text-slate-500 mb-2 font-medium">Chọn nhanh tài khoản phân quyền mẫu:</p>
                     <div className="flex gap-2">
                         <button
                             type="button"
                             onClick={() => chonMau("admin", "admin123")}
-                            className="flex-1 py-1.5 px-3 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-center transition"
+                            className="flex-1 py-2 px-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl text-xs font-bold text-purple-800 text-center transition flex flex-col items-center justify-center"
                         >
-                            Quản trị viên (admin)
+                            <span>🛡️ Quản trị viên</span>
+                            <span className="text-[10px] text-purple-600 font-normal">admin / 123456</span>
                         </button>
                         <button
                             type="button"
                             onClick={() => chonMau("thuthu01", "123456")}
-                            className="flex-1 py-1.5 px-3 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold text-slate-700 text-center transition"
+                            className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 text-center transition flex flex-col items-center justify-center"
                         >
-                            Thủ thư (thuthu01)
+                            <span>📖 Thủ thư</span>
+                            <span className="text-[10px] text-emerald-600 font-normal">thuthu01 / 123456</span>
                         </button>
                     </div>
                 </div>
