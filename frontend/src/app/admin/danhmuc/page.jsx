@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
     getDanhMucs,
     createDanhMuc,
     updateDanhMuc,
     deleteDanhMuc,
 } from "@/services/admin/danhMucService";
+import { getSanPhams } from "@/services/admin/sanPhamService";
 
 export default function DanhMucAdminPage() {
     const [danhMucs, setDanhMucs] = useState([]);
@@ -24,8 +26,34 @@ export default function DanhMucAdminPage() {
         const tai = async () => {
             try {
                 setLoading(true);
-                const res = await getDanhMucs(1, 100);
-                setDanhMucs(res.data || []);
+                const [resDm, resSach] = await Promise.allSettled([
+                    getDanhMucs(1, 100),
+                    getSanPhams(1, 1000),
+                ]);
+
+                const rawDm = resDm.status === "fulfilled" ? (resDm.value?.data || []) : [];
+                const rawSach = resSach.status === "fulfilled" ? (resSach.value?.data || []) : [];
+
+                // Đếm số lượng sách theo danhMucId từ kho sách
+                const demTheoDanhMuc = {};
+                rawSach.forEach((s) => {
+                    const id = s.danhMucId || s.danh_muc_id;
+                    if (id != null) {
+                        const strId = String(id);
+                        demTheoDanhMuc[strId] = (demTheoDanhMuc[strId] || 0) + 1;
+                    }
+                });
+
+                const danhMucsCapNhat = rawDm.map((dm) => {
+                    const countFromBooks = demTheoDanhMuc[String(dm.id)] || 0;
+                    const countFromBackend = Number(dm.soLuongSach ?? dm.so_luong_sach ?? 0);
+                    return {
+                        ...dm,
+                        soLuongSach: Math.max(countFromBackend, countFromBooks),
+                    };
+                });
+
+                setDanhMucs(danhMucsCapNhat);
             } catch (err) {
                 console.error(err);
                 alert("Không thể tải danh sách danh mục!");
@@ -150,9 +178,14 @@ export default function DanhMucAdminPage() {
                                         )}
                                     </td>
                                     <td className="px-5 py-4">
-                                        <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium">
-                                            {item.soLuongSach ?? item.so_luong_sach ?? 0} sách
-                                        </span>
+                                        <Link
+                                            href={`/admin/sanpham?danh_muc=${item.id}`}
+                                            className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold transition"
+                                            title={`Xem danh sách sách thuộc danh mục ${item.ten_danh_muc || item.tenDanhMuc}`}
+                                        >
+                                            <span>{item.soLuongSach ?? item.so_luong_sach ?? 0} sách</span>
+                                            <span className="text-[11px] text-emerald-500 font-bold">→</span>
+                                        </Link>
                                     </td>
                                     <td className="px-5 py-4 text-center">
                                         <div className="flex gap-2 justify-center">

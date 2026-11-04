@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSanPhams, deleteSanPham } from "@/services/admin/sanPhamService";
+import { getDanhMucs } from "@/services/admin/danhMucService";
 import Pagination from "@/components/common/Pagination";
 import API_CONFIG from "@/config/api";
 import { layDuongDanAnh } from "@/utils/format";
@@ -19,6 +20,8 @@ export default function SanPhamAdminPage() {
     const [dangTai, setDangTai] = useState(true);
     const [refreshFlag, setRefreshFlag] = useState(0);
     const [vaiTro, setVaiTro] = useState(null);
+    const [danhMucLoc, setDanhMucLoc] = useState(null);
+    const [mapDanhMuc, setMapDanhMuc] = useState({});
 
     useEffect(() => {
         try {
@@ -28,6 +31,24 @@ export default function SanPhamAdminPage() {
                 setVaiTro(u.vaiTro);
             }
         } catch {}
+
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const dm = params.get("danh_muc");
+            if (dm) setDanhMucLoc(dm);
+        }
+    }, []);
+
+    useEffect(() => {
+        getDanhMucs(1, 100)
+            .then((res) => {
+                const map = {};
+                (res?.data || []).forEach((dm) => {
+                    map[String(dm.id)] = dm.tenDanhMuc || dm.ten_danh_muc;
+                });
+                setMapDanhMuc(map);
+            })
+            .catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -67,11 +88,14 @@ export default function SanPhamAdminPage() {
 
     const dinhDangGia = (gia) => Number(gia || 0).toLocaleString("vi-VN") + " ₫";
 
-    const locTheoTuKhoa = danhSach.filter((row) =>
-        !tuKhoa.trim() ||
-        (row.ten_san_pham || row.tenSach || "").toLowerCase().includes(tuKhoa.toLowerCase()) ||
-        (row.ma_san_pham || row.maSach || "").toLowerCase().includes(tuKhoa.toLowerCase())
-    );
+    const locTheoTuKhoa = danhSach.filter((row) => {
+        const rowDmId = String(row.danhMucId || row.danh_muc_id || "");
+        const matchDm = !danhMucLoc || rowDmId === String(danhMucLoc);
+        const matchTuKhoa = !tuKhoa.trim() ||
+            (row.ten_san_pham || row.tenSach || "").toLowerCase().includes(tuKhoa.toLowerCase()) ||
+            (row.ma_san_pham || row.maSach || "").toLowerCase().includes(tuKhoa.toLowerCase());
+        return matchDm && matchTuKhoa;
+    });
 
     return (
         <div className="p-6">
@@ -103,8 +127,26 @@ export default function SanPhamAdminPage() {
                 </Link>
             </div>
 
+            {/* Banner hiển thị khi đang lọc theo danh mục */}
+            {danhMucLoc && (
+                <div className="flex items-center gap-3 mb-5 bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2.5 rounded-xl text-sm w-fit">
+                    <span>
+                        Đang xem sách thuộc danh mục: <strong className="text-emerald-800">{mapDanhMuc[String(danhMucLoc)] || `#${danhMucLoc}`}</strong>
+                    </span>
+                    <button
+                        onClick={() => {
+                            setDanhMucLoc(null);
+                            router.replace("/admin/sanpham");
+                        }}
+                        className="text-xs bg-emerald-200 hover:bg-emerald-300 text-emerald-900 font-bold px-2.5 py-1 rounded-lg transition"
+                    >
+                        ✕ Xóa bộ lọc
+                    </button>
+                </div>
+            )}
+
             {/* Tìm kiếm */}
-            <div className="mb-5">
+            <div className="mb-5 flex flex-wrap items-center gap-3">
                 <input
                     type="text"
                     value={tuKhoa}
@@ -112,6 +154,11 @@ export default function SanPhamAdminPage() {
                     placeholder="Lọc theo tên sách hoặc mã sách..."
                     className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+                {danhMucLoc && (
+                    <span className="text-xs text-gray-500">
+                        (Đã tìm thấy {locTheoTuKhoa.length} sách trong danh mục này)
+                    </span>
+                )}
             </div>
 
             {dangTai ? (
@@ -161,8 +208,14 @@ export default function SanPhamAdminPage() {
                                             <p className="line-clamp-2">{tenSach}</p>
                                         </td>
                                         <td className="px-5 py-4 font-mono text-xs text-gray-500">{maSach}</td>
-                                        <td className="px-5 py-4 text-gray-500">
-                                            {row.danhMucId ? `Danh mục #${row.danhMucId}` : "-"}
+                                        <td className="px-5 py-4 text-gray-700">
+                                            {row.danhMucId ? (
+                                                <span className="inline-block bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                                                    {mapDanhMuc[String(row.danhMucId)] || `Danh mục #${row.danhMucId}`}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs">Chưa phân loại</span>
+                                            )}
                                         </td>
                                         <td className="px-5 py-4 text-gray-500">{row.namXuatBan || "-"}</td>
                                         <td className="px-5 py-4">
