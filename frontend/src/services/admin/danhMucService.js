@@ -28,6 +28,7 @@ function chuanHoaDanhMuc(item) {
         danh_muc_cha_id: item.danhMucChaId ?? item.danh_muc_cha_id ?? null,
         thu_tu: item.id || 1,
         trang_thai: 1,
+        soLuongSach: Number(item.soLuongSach ?? item.so_luong_sach ?? 0),
     };
 }
 

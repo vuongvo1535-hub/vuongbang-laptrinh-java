@@ -14,4 +14,9 @@ public interface SachRepository extends JpaRepository<Sach, Long> {
 
     @Query("SELECT s FROM Sach s ORDER BY s.id DESC")
     List<Sach> findAllOrderByIdDesc();
+
+    @Query("SELECT s.danhMucId, COUNT(s) FROM Sach s WHERE s.danhMucId IS NOT NULL GROUP BY s.danhMucId")
+    List<Object[]> countSoSachTheoDanhMuc();
+
+    long countByDanhMucId(Long danhMucId);
 }
