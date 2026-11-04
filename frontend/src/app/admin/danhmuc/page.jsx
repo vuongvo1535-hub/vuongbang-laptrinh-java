@@ -8,7 +8,6 @@ import {
     updateDanhMuc,
     deleteDanhMuc,
 } from "@/services/admin/danhMucService";
-import { getSanPhams } from "@/services/admin/sanPhamService";
 
 export default function DanhMucAdminPage() {
     const [danhMucs, setDanhMucs] = useState([]);
@@ -26,36 +25,10 @@ export default function DanhMucAdminPage() {
         const tai = async () => {
             try {
                 setLoading(true);
-                const [resDm, resSach] = await Promise.allSettled([
-                    getDanhMucs(1, 100),
-                    getSanPhams(1, 1000),
-                ]);
-
-                const rawDm = resDm.status === "fulfilled" ? (resDm.value?.data || []) : [];
-                const rawSach = resSach.status === "fulfilled" ? (resSach.value?.data || []) : [];
-
-                // Đếm số lượng sách theo danhMucId từ kho sách
-                const demTheoDanhMuc = {};
-                rawSach.forEach((s) => {
-                    const id = s.danhMucId || s.danh_muc_id;
-                    if (id != null) {
-                        const strId = String(id);
-                        demTheoDanhMuc[strId] = (demTheoDanhMuc[strId] || 0) + 1;
-                    }
-                });
-
-                const danhMucsCapNhat = rawDm.map((dm) => {
-                    const countFromBooks = demTheoDanhMuc[String(dm.id)] || 0;
-                    const countFromBackend = Number(dm.soLuongSach ?? dm.so_luong_sach ?? 0);
-                    return {
-                        ...dm,
-                        soLuongSach: Math.max(countFromBackend, countFromBooks),
-                    };
-                });
-
-                setDanhMucs(danhMucsCapNhat);
+                const res = await getDanhMucs(1, 100);
+                setDanhMucs(res?.data || []);
             } catch (err) {
-                console.error(err);
+                console.warn("Lỗi tải danh mục:", err);
                 alert("Không thể tải danh sách danh mục!");
             } finally {
                 setLoading(false);

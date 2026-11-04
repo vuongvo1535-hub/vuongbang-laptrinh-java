@@ -63,7 +63,7 @@ export async function getSanPhams(page = 1, perPage = 10) {
             current_page: page,
         };
     } catch (err) {
-        console.error("Lỗi getSanPhams:", err);
+        console.warn("Lỗi getSanPhams:", err?.message || err);
         return { data: [], total: 0, last_page: 1 };
     }
 }
