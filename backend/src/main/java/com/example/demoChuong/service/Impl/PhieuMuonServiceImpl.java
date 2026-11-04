@@ -378,11 +378,18 @@ public class PhieuMuonServiceImpl implements PhieuMuonService {
     // ==========================================
     @Override
     public Map<String, Object> guiEmailNhacNho(Long phieuMuonId) {
+        return guiEmailNhacNho(phieuMuonId, null);
+    }
+
+    @Override
+    public Map<String, Object> guiEmailNhacNho(Long phieuMuonId, String emailTuyChon) {
         PhieuMuon phieu = timTheoId(phieuMuonId);
         DocGia docGia = docGiaRepository.findById(phieu.getDocGiaId())
                 .orElseThrow(() -> new ResourceNotFoundException("độc giả", phieu.getDocGiaId()));
 
-        String email = docGia.getEmail();
+        String email = (emailTuyChon != null && !emailTuyChon.trim().isEmpty())
+                ? emailTuyChon.trim()
+                : docGia.getEmail();
         if (email == null || email.isBlank()) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);

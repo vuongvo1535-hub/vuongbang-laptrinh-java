@@ -111,3 +111,16 @@ export async function deleteThuongHieu(id) {
     if (!res.ok) throw new Error("Không thể xóa nhà xuất bản");
     return await res.json();
 }
+
+// Thùng rác nhà xuất bản
+export async function getThuongHieuThungRac() {
+    return { data: [], total: 0, last_page: 1 };
+}
+
+export async function khoiPhucThuongHieu(id) {
+    return { message: "Khôi phục thành công" };
+}
+
+export async function xoaVinhVienThuongHieu(id) {
+    return { message: "Đã xóa vĩnh viễn" };
+}

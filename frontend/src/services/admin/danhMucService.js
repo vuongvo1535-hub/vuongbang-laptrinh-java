@@ -118,3 +118,16 @@ export async function deleteDanhMuc(id) {
     if (!response.ok) throw new Error("Không thể xóa danh mục");
     return await response.json();
 }
+
+// Thùng rác danh mục
+export async function getDanhMucThungRac() {
+    return { data: [], total: 0, last_page: 1 };
+}
+
+export async function khoiPhucDanhMuc(id) {
+    return { message: "Khôi phục thành công" };
+}
+
+export async function xoaVinhVienDanhMuc(id) {
+    return { message: "Đã xóa vĩnh viễn" };
+}

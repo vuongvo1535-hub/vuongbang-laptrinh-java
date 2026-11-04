@@ -410,8 +410,10 @@ export default function PhieuMuonUserPage() {
             });
 
             let msg = `✅ Nộp phạt #${khoanPhatChon.id} thành công qua ZaloPay!`;
-            if (resData?.emailNhan || targetEmail) {
-                msg += ` Đã gửi biên lai về Gmail: ${resData?.emailNhan || targetEmail}`;
+            if (resData?.emailSent) {
+                msg += ` Đã gửi biên lai về Gmail: ${resData.emailNhan || targetEmail}`;
+            } else if (resData?.emailStatus) {
+                msg += ` (${resData.emailStatus})`;
             }
             setThongBao(msg);
             if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);
@@ -443,8 +445,10 @@ export default function PhieuMuonUserPage() {
                 ngay: new Date().toLocaleString("vi-VN"),
             });
             let msg = `✅ Nộp phạt #${khoanPhatChon.id} thành công qua MoMo!`;
-            if (data?.emailNhan || targetEmail) {
-                msg += ` Đã gửi biên lai về Gmail: ${data?.emailNhan || targetEmail}`;
+            if (data?.emailSent) {
+                msg += ` Đã gửi biên lai về Gmail: ${data.emailNhan || targetEmail}`;
+            } else if (data?.emailStatus) {
+                msg += ` (${data.emailStatus})`;
             }
             setThongBao(msg);
             if (user) taiDuLieu(user.docGiaId || user.taiKhoanId);

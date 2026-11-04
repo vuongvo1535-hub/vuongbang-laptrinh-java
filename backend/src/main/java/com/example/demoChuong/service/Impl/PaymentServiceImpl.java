@@ -209,7 +209,8 @@ public class PaymentServiceImpl implements PaymentService {
                         soTienDemo,
                         "NOP_PHAT_DEMO",
                         "Phạt trả sách trễ hạn (Thử nghiệm " + tenCổng + ")",
-                        "Sách: Đắc Nhân Tâm (Bản Demo)"
+                        "Sách: Đắc Nhân Tâm (Bản Demo)",
+                        prefix
                 );
             }
 
@@ -302,7 +303,8 @@ public class PaymentServiceImpl implements PaymentService {
                     tp.getSoTien() != null ? tp.getSoTien() : BigDecimal.ZERO,
                     "NOP_PHAT_" + tp.getId(),
                     lyDo,
-                    tenSach
+                    tenSach,
+                    prefix
             );
         }
 

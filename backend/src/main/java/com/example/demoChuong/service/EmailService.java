@@ -5,7 +5,7 @@ import java.util.Map;
 
 public interface EmailService {
     /**
-     * Gửi email xác nhận thanh toán MoMo thành công cho người dùng
+     * Gửi email xác nhận thanh toán thành công (hỗ trợ ZaloPay, MoMo,...)
      */
     Map<String, Object> guiEmailThongBaoThanhToan(
             String emailNhan,
@@ -14,8 +14,24 @@ public interface EmailService {
             BigDecimal soTien,
             String noiDung,
             String lyDo,
-            String tenSach
+            String tenSach,
+            String phuongThuc
     );
+
+    /**
+     * Tương thích ngược: mặc định MoMo
+     */
+    default Map<String, Object> guiEmailThongBaoThanhToan(
+            String emailNhan,
+            String tenDocGia,
+            String maGiaoDich,
+            BigDecimal soTien,
+            String noiDung,
+            String lyDo,
+            String tenSach
+    ) {
+        return guiEmailThongBaoThanhToan(emailNhan, tenDocGia, maGiaoDich, soTien, noiDung, lyDo, tenSach, "MOMO");
+    }
 
     /**
      * Gửi email thử nghiệm cấu hình SMTP Gmail
